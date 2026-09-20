@@ -223,7 +223,7 @@ app.post(
       const token =
         process.env.META_ACCESS_TOKEN;
 
-      const igUserId =
+      let igUserId =
         process.env.IG_USER_ID;
 
       const publicUrl =
@@ -232,13 +232,11 @@ app.post(
           ? "https://" + process.env.RAILWAY_PUBLIC_DOMAIN
           : "");
 
-      if (!token || !igUserId || !publicUrl) {
-
+      if (!token) {
         return res.status(500).json({
           error:
-          "Meta 설정이 아직 완료되지 않았습니다."
+            "META_ACCESS_TOKEN을 Railway Variables에 설정하세요."
         });
-
       }
 
       const videoUrl =
@@ -248,6 +246,32 @@ app.post(
 
       const version =
         process.env.META_API_VERSION || "v26.0";
+
+      if (!igUserId) {
+        try {
+          const accountsUrl =
+            "https://graph.facebook.com/" +
+            version +
+            "/me/accounts?fields=id,name,instagram_business_account&access_token=" +
+            encodeURIComponent(token);
+          const accountsResponse = await fetch(accountsUrl);
+          const accounts = await accountsResponse.json();
+          const pageWithInstagram = (accounts.data || []).find(
+            page => page.instagram_business_account?.id
+          );
+          igUserId =
+            pageWithInstagram?.instagram_business_account?.id || "";
+        } catch (lookupError) {
+          console.error("Instagram account lookup failed:", lookupError);
+        }
+      }
+
+      if (!igUserId) {
+        return res.status(500).json({
+          error:
+            "Instagram 프로 계정 ID를 자동으로 찾지 못했습니다. IG_USER_ID를 Railway Variables에 추가하세요."
+        });
+      }
 
       const createUrl =
         "https://graph.facebook.com/" +
