@@ -266,7 +266,7 @@ app.post(
         process.env.META_ACCESS_TOKEN;
 
       let igUserId =
-        process.env.IG_USER_ID;
+        process.env.IG_USER_ID || "17841425033449176";
 
       const publicUrl =
         process.env.PUBLIC_BASE_URL ||
