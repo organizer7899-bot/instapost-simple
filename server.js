@@ -205,7 +205,10 @@ app.post(
         process.env.IG_USER_ID;
 
       const publicUrl =
-        process.env.PUBLIC_BASE_URL;
+        process.env.PUBLIC_BASE_URL ||
+        (process.env.RAILWAY_PUBLIC_DOMAIN
+          ? "https://" + process.env.RAILWAY_PUBLIC_DOMAIN
+          : "");
 
       if (!token || !igUserId || !publicUrl) {
 
