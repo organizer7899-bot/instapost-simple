@@ -8,6 +8,129 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+const TOKEN_STORE_PATH =
+  process.env.META_TOKEN_STORE_PATH || "data/meta-token.json";
+
+let runtimeMetaToken = process.env.META_ACCESS_TOKEN || "";
+
+function loadStoredMetaToken() {
+  try {
+    if (fs.existsSync(TOKEN_STORE_PATH)) {
+      const saved = JSON.parse(fs.readFileSync(TOKEN_STORE_PATH, "utf8"));
+      if (saved?.access_token) runtimeMetaToken = saved.access_token;
+    }
+  } catch (error) {
+    console.error("Saved Meta token load failed:", error);
+  }
+}
+
+function saveStoredMetaToken(accessToken, expiresAt) {
+  try {
+    fs.mkdirSync("data", { recursive: true });
+    fs.writeFileSync(
+      TOKEN_STORE_PATH,
+      JSON.stringify({
+        access_token: accessToken,
+        expires_at: expiresAt || null,
+        updated_at: new Date().toISOString()
+      })
+    );
+  } catch (error) {
+    console.error("Saved Meta token write failed:", error);
+  }
+}
+
+async function ensureMetaToken() {
+  if (!runtimeMetaToken) {
+    loadStoredMetaToken();
+  }
+
+  if (!runtimeMetaToken) {
+    throw new Error("META_ACCESS_TOKEN이 설정되지 않았습니다.");
+  }
+
+  const version = process.env.META_API_VERSION || "v26.0";
+  const appId = process.env.META_APP_ID;
+  const appSecret = process.env.META_APP_SECRET;
+
+  // App credentials are optional for normal posting, but required for
+  // automatic long-lived token renewal.
+  if (!appId || !appSecret) {
+    return runtimeMetaToken;
+  }
+
+  try {
+    const debugUrl =
+      "https://graph.facebook.com/" +
+      version +
+      "/debug_token?input_token=" +
+      encodeURIComponent(runtimeMetaToken) +
+      "&access_token=" +
+      encodeURIComponent(appId + "|" + appSecret);
+
+    const debugResponse = await fetch(debugUrl);
+    const debug = await debugResponse.json();
+    const data = debug?.data;
+
+    if (!debugResponse.ok || !data) {
+      console.error("Meta token debug failed:", debug);
+      return runtimeMetaToken;
+    }
+
+    const expiresAt = Number(data.expires_at || 0);
+    const daysLeft = expiresAt
+      ? (expiresAt * 1000 - Date.now()) / 86400000
+      : Infinity;
+
+    // Renew automatically when the token has 14 days or less remaining.
+    if (daysLeft > 14) {
+      return runtimeMetaToken;
+    }
+
+    const refreshUrl =
+      "https://graph.facebook.com/" +
+      version +
+      "/oauth/access_token?grant_type=fb_exchange_token" +
+      "&client_id=" +
+      encodeURIComponent(appId) +
+      "&client_secret=" +
+      encodeURIComponent(appSecret) +
+      "&fb_exchange_token=" +
+      encodeURIComponent(runtimeMetaToken);
+
+    const refreshResponse = await fetch(refreshUrl);
+    const refreshed = await refreshResponse.json();
+
+    if (!refreshResponse.ok || !refreshed?.access_token) {
+      console.error("Meta token auto-renew failed:", refreshed);
+      if (expiresAt && expiresAt * 1000 <= Date.now()) {
+        throw new Error(
+          "Meta 액세스 토큰이 만료되었습니다. 최초 1회 새 장기 토큰 연결이 필요합니다."
+        );
+      }
+      return runtimeMetaToken;
+    }
+
+    runtimeMetaToken = refreshed.access_token;
+    const newExpiresAt =
+      refreshed.expires_at ||
+      (refreshed.expires_in
+        ? Math.floor(Date.now() / 1000) + Number(refreshed.expires_in)
+        : null);
+
+    saveStoredMetaToken(runtimeMetaToken, newExpiresAt);
+    console.log("Meta access token renewed automatically.");
+
+    return runtimeMetaToken;
+  } catch (error) {
+    if (error.message.includes("최초 1회")) throw error;
+    console.error("Meta token renewal check failed:", error);
+    return runtimeMetaToken;
+  }
+}
+
+loadStoredMetaToken();
+
 fs.mkdirSync("uploads", { recursive: true });
 
 const upload = multer({
@@ -209,7 +332,7 @@ document.getElementById("post").onclick = async () => {
 
 app.get("/meta-debug", async (req, res) => {
   try {
-    const token = process.env.META_ACCESS_TOKEN;
+    const token = await ensureMetaToken();
     const version = process.env.META_API_VERSION || "v26.0";
     const businessId = process.env.META_BUSINESS_ID || "2117489702486564";
 
@@ -262,8 +385,7 @@ app.post(
         });
       }
 
-      const token =
-        process.env.META_ACCESS_TOKEN;
+      const token = await ensureMetaToken();
 
       let igUserId =
         process.env.IG_USER_ID || "17841425033449176";
