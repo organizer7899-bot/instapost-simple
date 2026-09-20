@@ -11,11 +11,33 @@ const PORT = process.env.PORT || 3000;
 fs.mkdirSync("uploads", { recursive: true });
 
 const upload = multer({
-  dest: "uploads/",
-  limits: { fileSize: 1024 * 1024 * 500 }
+  storage: multer.diskStorage({
+    destination: "uploads/",
+    filename: (req, file, cb) => {
+      const ext = file.originalname.includes(".")
+        ? "." + file.originalname.split(".").pop().toLowerCase()
+        : ".mp4";
+      cb(null, Date.now() + "-" + Math.random().toString(36).slice(2) + ext);
+    }
+  }),
+  limits: { fileSize: 1024 * 1024 * 500 },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype && file.mimetype.startsWith("video/")) {
+      cb(null, true);
+    } else {
+      cb(new Error("동영상 파일만 업로드할 수 있습니다."));
+    }
+  }
 });
 
 app.use("/uploads", express.static("uploads"));
+
+app.get("/health", (req, res) => {
+  res.json({
+    ok: true,
+    service: "instapost-simple"
+  });
+});
 
 app.get("/", (req, res) => {
   res.send(`
@@ -263,13 +285,12 @@ app.post(
         await createResponse.json();
 
       if (!createResponse.ok || !created.id) {
-
+        fs.rmSync(req.file.path, { force: true });
         return res.status(502).json({
           error:
-          created?.error?.message ||
-          "Instagram 업로드 준비 실패"
+            created?.error?.message ||
+            "Instagram 업로드 준비 실패"
         });
-
       }
 
       const creationId = created.id;
@@ -309,9 +330,11 @@ app.post(
           status.status_code ===
           "ERROR"
         ) {
+          fs.rmSync(req.file.path, { force: true });
           return res.status(502).json({
             error:
-            "Instagram 영상 처리에 실패했습니다."
+              status?.error?.message ||
+              "Instagram 영상 처리에 실패했습니다."
           });
         }
 
@@ -319,9 +342,10 @@ app.post(
 
       if (!finished) {
 
+        fs.rmSync(req.file.path, { force: true });
         return res.status(504).json({
           error:
-          "Instagram 영상 처리가 아직 끝나지 않았습니다."
+            "Instagram 영상 처리가 아직 끝나지 않았습니다."
         });
 
       }
@@ -363,14 +387,15 @@ app.post(
         await publishResponse.json();
 
       if (!publishResponse.ok) {
-
+        fs.rmSync(req.file.path, { force: true });
         return res.status(502).json({
           error:
-          published?.error?.message ||
-          "Instagram 게시 실패"
+            published?.error?.message ||
+            "Instagram 게시 실패"
         });
-
       }
+
+      fs.rmSync(req.file.path, { force: true });
 
       res.json({
         ok:true,
@@ -378,11 +403,14 @@ app.post(
       });
 
     } catch(error) {
+      if (req.file?.path) {
+        fs.rmSync(req.file.path, { force: true });
+      }
 
       console.error(error);
 
       res.status(500).json({
-        error:error.message
+        error:error.message || "서버 오류가 발생했습니다."
       });
 
     }
