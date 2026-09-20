@@ -327,6 +327,27 @@ app.post(
       }
 
       if (!igUserId) {
+        try {
+          const pageId = process.env.META_PAGE_ID || "126707728983019";
+          const pageUrl =
+            "https://graph.facebook.com/" +
+            version +
+            "/" +
+            pageId +
+            "?fields=id,name,instagram_business_account{id,username}&access_token=" +
+            encodeURIComponent(token);
+          const pageResponse = await fetch(pageUrl);
+          const page = await pageResponse.json();
+          if (page?.instagram_business_account?.id) {
+            igUserId = page.instagram_business_account.id;
+          }
+          console.log("Direct Page Instagram lookup:", page);
+        } catch (lookupError) {
+          console.error("Direct Page Instagram lookup failed:", lookupError);
+        }
+      }
+
+      if (!igUserId) {
         return res.status(500).json({
           error:
             "Instagram 프로 계정 ID를 자동으로 찾지 못했습니다. IG_USER_ID를 Railway Variables에 추가하세요."
