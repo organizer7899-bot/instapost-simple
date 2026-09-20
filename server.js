@@ -249,6 +249,24 @@ app.post(
 
       if (!igUserId) {
         try {
+          const meUrl =
+            "https://graph.facebook.com/" +
+            version +
+            "/me?fields=id,username&access_token=" +
+            encodeURIComponent(token);
+          const meResponse = await fetch(meUrl);
+          const me = await meResponse.json();
+
+          if (me?.username && me?.id) {
+            igUserId = me.id;
+          }
+        } catch (lookupError) {
+          console.error("Instagram user lookup failed:", lookupError);
+        }
+      }
+
+      if (!igUserId) {
+        try {
           const accountsUrl =
             "https://graph.facebook.com/" +
             version +
@@ -262,7 +280,7 @@ app.post(
           igUserId =
             pageWithInstagram?.instagram_business_account?.id || "";
         } catch (lookupError) {
-          console.error("Instagram account lookup failed:", lookupError);
+          console.error("Facebook Page Instagram lookup failed:", lookupError);
         }
       }
 
