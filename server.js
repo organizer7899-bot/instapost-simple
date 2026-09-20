@@ -207,6 +207,48 @@ document.getElementById("post").onclick = async () => {
 `);
 });
 
+app.get("/meta-debug", async (req, res) => {
+  try {
+    const token = process.env.META_ACCESS_TOKEN;
+    const version = process.env.META_API_VERSION || "v26.0";
+    const businessId = process.env.META_BUSINESS_ID || "2117489702486564";
+
+    if (!token) {
+      return res.status(500).json({ error: "META_ACCESS_TOKEN이 없습니다." });
+    }
+
+    const getJson = async (path) => {
+      const url =
+        "https://graph.facebook.com/" +
+        version +
+        path +
+        (path.includes("?") ? "&" : "?") +
+        "access_token=" +
+        encodeURIComponent(token);
+      const response = await fetch(url);
+      const data = await response.json();
+      return { ok: response.ok, status: response.status, data };
+    };
+
+    const me = await getJson("/me?fields=id,name,username");
+    const accounts = await getJson(
+      "/me/accounts?fields=id,name,instagram_business_account"
+    );
+    const businessPages = await getJson(
+      "/" + businessId + "/client_pages?fields=id,name,instagram_business_account"
+    );
+
+    res.json({
+      me,
+      accounts,
+      businessPages,
+      note: "토큰은 이 응답에 표시하지 않습니다."
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.post(
   "/publish",
   upload.single("video"),
