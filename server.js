@@ -11,7 +11,7 @@ const PORT = process.env.PORT || 3000;
 const TOKEN_STORE_PATH =
   process.env.META_TOKEN_STORE_PATH || "data/meta-token.json";
 
-function normalizeMetaToken(value) {\n  return String(value || "").replace(/\\s+/g, "");\n}\n\nlet runtimeMetaToken = normalizeMetaToken(process.env.META_ACCESS_TOKEN);
+let runtimeMetaToken = process.env.META_ACCESS_TOKEN || "";
 
 function loadStoredMetaToken() {
   try {
