@@ -912,11 +912,13 @@ app.post(
 
       let finished = false;
 
+      // Poll Instagram processing status more frequently so publishing
+      // does not appear unnecessarily stalled.
       for (let i=0;i<30;i++) {
 
         await new Promise(
           resolve =>
-          setTimeout(resolve,4000)
+          setTimeout(resolve,2000)
         );
 
         const statusUrl =
