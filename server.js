@@ -300,7 +300,7 @@ video{
   placeholder="게시글 내용을 입력하세요."
 ></textarea>
 
-<button id="post">
+<button id="post" type="button" onclick="publishVideo()">
 Instagram + Facebook에 게시
 </button>
 
@@ -358,38 +358,37 @@ video.onchange = () => {
 
 };
 
-postButton.onclick = async () => {
+async function publishVideo() {
 
   const file = video.files[0];
 
   if (!file) {
-    result.textContent = "영상을 먼저 선택하세요.";
+    result.textContent = "❌ 영상을 먼저 선택하세요.";
     return;
   }
 
-  result.textContent = "① 영상 업로드 준비 중...";
-  fileInfo.textContent =
-    "📤 " + file.name + " — 서버로 영상 업로드 중...";
+  // Immediate visual confirmation that the button action fired.
+  result.textContent = "① 게시 버튼 작동 — 영상 업로드 준비 중...";
+  fileInfo.textContent = "📤 " + file.name + " — 서버로 전송 중...";
 
   const form = new FormData();
-
   form.append("video", file);
-  form.append(
-    "caption",
-    document.getElementById("caption").value
-  );
+  form.append("caption", document.getElementById("caption").value || "");
 
   try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 120000);
 
-    const response = await fetch(
-      "/publish",
-      {
-        method:"POST",
-        body:form
-      }
-    );
+    const response = await fetch("/publish", {
+      method: "POST",
+      body: form,
+      signal: controller.signal
+    });
+
+    clearTimeout(timer);
 
     result.textContent = "② 서버 업로드 완료 — Instagram 처리 중...";
+
     const data = await response.json();
 
     if (!response.ok) {
@@ -397,28 +396,31 @@ postButton.onclick = async () => {
     }
 
     const fb = data.facebook;
-    if (fb && fb.skipped) {
-      fileInfo.textContent = "⚠️ Instagram 게시 완료 / Facebook은 연결 상태를 확인하세요.";
-      result.textContent =
-        "③ Instagram 게시 완료\n⚠️ Facebook: " + (fb.reason || "연결되지 않음");
-    } else if (fb && fb.ok) {
+
+    if (fb && fb.ok) {
       fileInfo.textContent = "✅ Instagram + Facebook 게시 완료";
+      result.textContent = "③ Instagram + Facebook 동시 게시 완료";
+    } else if (fb && fb.skipped) {
+      fileInfo.textContent = "⚠️ Instagram 게시 완료";
       result.textContent =
-        "③ Instagram + Facebook 동시 게시 완료";
+        "③ Instagram 게시 완료\n⚠️ Facebook: " +
+        (fb.reason || "연결되지 않음");
     } else {
       fileInfo.textContent = "✅ Instagram 게시 완료";
       result.textContent = "③ Instagram 게시 완료";
     }
 
-  } catch(error) {
-
-    fileInfo.textContent = "❌ 게시 실패";
-    result.textContent =
-      "❌ " + error.message;
-
+  } catch (error) {
+    if (error.name === "AbortError") {
+      fileInfo.textContent = "❌ 게시 시간 초과";
+      result.textContent =
+        "❌ 2분 동안 게시 응답이 없습니다. 서버 처리 상태를 확인해야 합니다.";
+    } else {
+      fileInfo.textContent = "❌ 게시 실패";
+      result.textContent = "❌ " + error.message;
+    }
   }
-
-};
+}
 
 </script>
 
