@@ -303,7 +303,7 @@ video{
   placeholder="게시글 내용을 입력하세요."
 ></textarea>
 
-<button id="post" type="button" onclick="this.textContent='⏳ 클릭 확인됨'; this.style.background='#666'; publishVideo();">
+<button id="post" type="button" onclick="(async()=>{const b=this,f=document.getElementById('video').files[0],r=document.getElementById('result'),i=document.getElementById('fileInfo');if(!f){r.textContent='❌ 영상을 먼저 선택하세요.';return;}b.textContent='⏳ 서버 전송 중...';i.textContent='📤 '+f.name+' — 서버로 전송 중...';r.textContent='① 게시 버튼 작동 — 영상 업로드 중...';const fd=new FormData();fd.append('video',f);fd.append('caption',document.getElementById('caption').value||'');try{const x=await fetch('/publish',{method:'POST',body:fd});const d=await x.json();if(!x.ok)throw new Error(d.error||'게시 실패');b.textContent='✅ 게시 완료';i.textContent=d.facebook&&d.facebook.ok?'✅ Instagram + Facebook 게시 완료':'✅ Instagram 게시 완료';r.textContent=d.facebook&&d.facebook.ok?'③ Instagram + Facebook 동시 게시 완료':'③ Instagram 게시 완료';}catch(e){b.textContent='❌ 게시 실패';i.textContent='❌ 게시 실패';r.textContent='❌ '+e.message;}})()">
 Instagram + Facebook에 게시
 </button>
 
