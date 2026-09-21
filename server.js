@@ -264,6 +264,11 @@ video{
 <p>영상 선택 → 게시글 입력 → Instagram + Facebook 동시 게시</p>
 
 <div class="card">
+<button id="fbConnect">Facebook 연결</button>
+<div id="fbStatus">Facebook 연결 상태 확인 중...</div>
+</div>
+
+<div class="card">
 
 <input
   id="video"
@@ -297,6 +302,28 @@ Instagram + Facebook에 게시
 const video = document.getElementById("video");
 const preview = document.getElementById("preview");
 const result = document.getElementById("result");
+const fbStatus = document.getElementById("fbStatus");
+
+async function checkFacebookStatus() {
+  try {
+    const response = await fetch("/facebook-status");
+    const data = await response.json();
+    if (data.connected) {
+      fbStatus.textContent = "✅ Facebook 연결 완료";
+      document.getElementById("fbConnect").textContent = "Facebook 다시 연결";
+    } else {
+      fbStatus.textContent = "⚠️ Facebook이 아직 연결되지 않았습니다.";
+    }
+  } catch (error) {
+    fbStatus.textContent = "Facebook 연결 상태 확인 실패";
+  }
+}
+
+document.getElementById("fbConnect").onclick = () => {
+  window.location.href = "/facebook/login";
+};
+
+checkFacebookStatus();
 
 video.onchange = () => {
 
