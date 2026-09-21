@@ -413,6 +413,8 @@ async function publishVideo() {
     const fb = data.facebook;
 
     if (fb && fb.ok) {
+      facebookShareUrl = fb.shareUrl || "";
+      document.getElementById("shareInfo").textContent = "Facebook 게시 완료 — 아래 개인 피드 공유 버튼을 눌러주세요.";
       fileInfo.textContent = "✅ Instagram + Facebook 게시 완료";
       result.textContent = "③ Instagram + Facebook 동시 게시 완료";
     } else if (fb && fb.skipped) {
