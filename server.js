@@ -373,7 +373,8 @@ app.get("/facebook/login", (req, res) => {
     state,
     config_id: config.configId,
     response_type: "code",
-    override_default_response_type: "true"
+    override_default_response_type: "true",
+    auth_type: "rerequest"
   });
 
   res.redirect(
@@ -382,6 +383,43 @@ app.get("/facebook/login", (req, res) => {
     "/dialog/oauth?" +
     params.toString()
   );
+});
+
+app.get("/facebook-config", (req, res) => {
+  const config = getFacebookConfig();
+  if (!config.appId || !config.configId) {
+    return res.status(500).json({
+      ok: false,
+      error: "FB_APP_ID 또는 FB_CONFIG_ID가 없습니다."
+    });
+  }
+
+  const state = Buffer.from(
+    JSON.stringify({ t: Date.now() }),
+    "utf8"
+  ).toString("base64url");
+
+  const params = new URLSearchParams({
+    client_id: config.appId,
+    redirect_uri: config.redirectUri,
+    state,
+    config_id: config.configId,
+    response_type: "code",
+    override_default_response_type: "true",
+    auth_type: "rerequest"
+  });
+
+  res.json({
+    ok: true,
+    app_id: config.appId,
+    config_id: config.configId,
+    redirect_uri: config.redirectUri,
+    login_url:
+      "https://www.facebook.com/" +
+      (process.env.META_API_VERSION || "v26.0") +
+      "/dialog/oauth?" +
+      params.toString()
+  });
 });
 
 app.get("/facebook/callback", async (req, res) => {
