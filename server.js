@@ -215,7 +215,7 @@ app.get("/", (req, res) => {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>InstaPost Simple Version 04</title>
+<title>InstaPost Simple Version 05 - 개인 피드 공유</title>
 <style>
 body{
   margin:0;
@@ -275,7 +275,7 @@ video{
 <body>
 <main>
 
-<h1>InstaPost Simple Version 04</h1>
+<h1>InstaPost Simple Version 05 - 개인 피드 공유</h1>
 <p>영상 선택 → 게시글 입력 → Instagram + Facebook 동시 게시</p>
 
 <div class="card">
@@ -303,9 +303,12 @@ video{
   placeholder="게시글 내용을 입력하세요."
 ></textarea>
 
-<button id="post" type="button" onclick="(async()=>{const b=this,f=document.getElementById('video').files[0],r=document.getElementById('result'),i=document.getElementById('fileInfo');if(!f){r.textContent='❌ 영상을 먼저 선택하세요.';return;}b.textContent='⏳ 서버 전송 중...';i.textContent='📤 '+f.name+' — 서버로 전송 중...';r.textContent='① 게시 버튼 작동 — 영상 업로드 중...';const fd=new FormData();fd.append('video',f);fd.append('caption',document.getElementById('caption').value||'');try{const x=await fetch('/publish',{method:'POST',body:fd});const d=await x.json();if(!x.ok)throw new Error(d.error||'게시 실패');b.textContent='✅ 게시 완료';i.textContent=d.facebook&&d.facebook.ok?'✅ Instagram + Facebook 게시 완료':'✅ Instagram 게시 완료';r.textContent=d.facebook&&d.facebook.ok?'③ Instagram + Facebook 동시 게시 완료':'③ Instagram 게시 완료';}catch(e){b.textContent='❌ 게시 실패';i.textContent='❌ 게시 실패';r.textContent='❌ '+e.message;}})()">
+<button id="post" type="button">
 Instagram + Facebook에 게시
 </button>
+
+<button id="personalShare" type="button">Facebook 개인 피드 공유</button>
+<div id="shareInfo" style="margin-top:10px;color:#bbb"></div>
 
 <div id="result"></div>
 
@@ -320,6 +323,20 @@ const result = document.getElementById("result");
 const fbStatus = document.getElementById("fbStatus");
 const fileInfo = document.getElementById("fileInfo");
 const postButton = document.getElementById("post");
+const personalShareButton = document.getElementById("personalShare");
+let facebookShareUrl = "";
+
+personalShareButton.onclick = function () {
+  if (!facebookShareUrl) {
+    document.getElementById("shareInfo").textContent =
+      "먼저 Instagram + Facebook에 게시하세요. 게시 완료 후 개인 피드 공유가 가능합니다.";
+    return;
+  }
+  const shareUrl = "https://www.facebook.com/sharer/sharer.php?u=" + encodeURIComponent(facebookShareUrl);
+  window.open(shareUrl, "_blank", "width=700,height=700");
+  document.getElementById("shareInfo").textContent =
+    "Facebook 공유 화면을 열었습니다. 개인 피드를 선택해 공유하세요.";
+};
 
 async function checkFacebookStatus() {
   try {
@@ -401,6 +418,7 @@ async function publishVideo() {
     const fb = data.facebook;
 
     if (fb && fb.ok) {
+      facebookShareUrl = fb.shareUrl || "";
       fileInfo.textContent = "✅ Instagram + Facebook 게시 완료";
       result.textContent = "③ Instagram + Facebook 동시 게시 완료";
     } else if (fb && fb.skipped) {
@@ -815,7 +833,8 @@ async function publishFacebookPageReel(videoPath, description) {
   return {
     skipped: false,
     ok: true,
-    videoId: started.video_id
+    videoId: started.video_id,
+    shareUrl: "https://www.facebook.com/" + pageId + "/videos/" + started.video_id
   };
 }
 
