@@ -145,7 +145,7 @@ app.get("/", (req, res) => {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>InstaPost Simple</title>
+<title>InstaPost Simple Version 02</title>
 <style>
 body{
   margin:0;
@@ -203,7 +203,7 @@ video{
 <body>
 <main>
 
-<h1>InstaPost Simple</h1>
+<h1>InstaPost Simple Version 02</h1>
 <p>영상 선택 → 게시글 입력 → Instagram 게시</p>
 
 <div class="card">
