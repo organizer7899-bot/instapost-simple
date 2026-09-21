@@ -445,9 +445,11 @@ async function publishVideo() {
     if (fb && fb.ok) {
       facebookShareUrl = fb.shareUrl || "";
       if (facebookShareUrl) {
+        // Keep the server route. It redirects to the actual Facebook Reel
+        // permalink so Facebook's own Reel page/share controls handle the
+        // personal-feed share instead of creating a text-only URL post.
         document.getElementById("personalShare").href =
-          "https://www.facebook.com/sharer/sharer.php?u=" +
-          encodeURIComponent(facebookShareUrl);
+          "/facebook-personal-share";
       }
       document.getElementById("shareInfo").textContent = "Facebook 게시 완료 — 아래 개인 피드 공유 버튼을 눌러주세요.";
       fileInfo.textContent = "✅ Instagram + Facebook 게시 완료";
@@ -751,17 +753,11 @@ app.get("/facebook-personal-share", (req, res) => {
     );
   }
 
-  const config = getFacebookConfig();
-  const dialogUrl =
-    "https://www.facebook.com/dialog/share?" +
-    new URLSearchParams({
-      app_id: config.appId,
-      display: "popup",
-      href: latestFacebookShareUrl,
-      redirect_uri: config.redirectUri
-    }).toString();
-
-  res.redirect(dialogUrl);
+  // Do not use sharer.php or the legacy Share Dialog here.
+  // Those flows can turn a Reel URL into a text-only post on mobile.
+  // Open the actual Reel permalink so the user can use Facebook's native
+  // Reel "공유 → 피드에 공유" action.
+  res.redirect(latestFacebookShareUrl);
 });
 
 app.get("/facebook-status", (req, res) => {
