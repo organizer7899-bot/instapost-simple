@@ -308,6 +308,10 @@ Instagram + Facebook에 게시
 </main>
 
 <script>
+window.fbAsyncInit = function() {
+  FB.init({appId: "1342959657681220", cookie: true, xfbml: false, version: "v26.0"});
+};
+(function(d,s,id){if(d.getElementById(id))return;const js=d.createElement(s);js.id=id;js.src="https://connect.facebook.net/ko_KR/sdk.js";d.getElementsByTagName("head")[0].appendChild(js);})(document,"script","facebook-jssdk");
 
 const video = document.getElementById("video");
 const preview = document.getElementById("preview");
@@ -330,7 +334,30 @@ async function checkFacebookStatus() {
 }
 
 document.getElementById("fbConnect").onclick = () => {
-  window.location.href = "/facebook/login";
+  if (!window.FB) {
+    fbStatus.textContent = "Facebook SDK 로딩 중입니다. 잠시 후 다시 눌러주세요.";
+    return;
+  }
+  FB.login(async function(response) {
+    if (!response.authResponse || !response.authResponse.code) {
+      fbStatus.textContent = "Facebook 연결이 취소되었거나 승인되지 않았습니다.";
+      return;
+    }
+    fbStatus.textContent = "Facebook 연결 처리 중...";
+    try {
+      const r = await fetch("/facebook/exchange-code", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({code: response.authResponse.code})
+      });
+      const data = await r.json();
+      if (!r.ok || !data.ok) throw new Error(data.error || "Facebook 연결 실패");
+      fbStatus.textContent = "✅ Facebook 연결 완료";
+      document.getElementById("fbConnect").textContent = "Facebook 다시 연결";
+    } catch (error) {
+      fbStatus.textContent = "❌ " + error.message;
+    }
+  }, {config_id:"1097511469455323", response_type:"code", override_default_response_type:true});
 };
 
 checkFacebookStatus();
@@ -470,6 +497,38 @@ app.get("/facebook-config", (req, res) => {
       "https://www.facebook.com/v26.0/dialog/oauth?" +
       params.toString()
   });
+});
+
+app.use(express.json());
+
+app.post("/facebook/exchange-code", async (req, res) => {
+  try {
+    const config = getFacebookConfig();
+    const code = String(req.body?.code || "");
+    if (!code) return res.status(400).json({ok:false,error:"Facebook authorization code가 없습니다."});
+    if (!config.appId || !config.appSecret) return res.status(500).json({ok:false,error:"FB_APP_ID 또는 FB_APP_SECRET이 없습니다."});
+
+    const tokenUrl = "https://graph.facebook.com/" + (process.env.META_API_VERSION || "v26.0") + "/oauth/access_token?" +
+      new URLSearchParams({client_id:config.appId,client_secret:config.appSecret,code}).toString();
+    const tokenResponse = await fetchWithTimeout(tokenUrl);
+    const tokenData = await tokenResponse.json();
+    if (!tokenResponse.ok || !tokenData?.access_token) return res.status(502).json({ok:false,error:tokenData?.error?.message || "Facebook 사용자 토큰 발급 실패"});
+
+    const accountsUrl = "https://graph.facebook.com/" + (process.env.META_API_VERSION || "v26.0") +
+      "/me/accounts?fields=id,name,access_token,tasks&access_token=" + encodeURIComponent(tokenData.access_token);
+    const accountsResponse = await fetchWithTimeout(accountsUrl);
+    const accountsData = await accountsResponse.json();
+    if (!accountsResponse.ok || !Array.isArray(accountsData?.data)) return res.status(502).json({ok:false,error:accountsData?.error?.message || "Facebook Page를 찾지 못했습니다."});
+
+    const selected = accountsData.data.find(p => config.pageId && p.id === config.pageId) || accountsData.data.find(p => p.access_token);
+    if (!selected?.access_token || !selected?.id) return res.status(400).json({ok:false,error:"Facebook Page Access Token을 찾지 못했습니다. Page 권한을 확인하세요."});
+
+    saveFacebookPageToken(selected.access_token, selected.id);
+    res.json({ok:true,page_id:selected.id,page_name:selected.name || selected.id});
+  } catch (error) {
+    console.error("Facebook JS SDK code exchange failed:", error);
+    res.status(500).json({ok:false,error:error.message || "Facebook 연결 오류"});
+  }
 });
 
 app.get("/facebook/callback", async (req, res) => {
