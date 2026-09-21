@@ -43,6 +43,52 @@ function saveStoredMetaToken(accessToken, expiresAt) {
   }
 }
 
+
+function getFacebookConfig() {
+  return {
+    appId: process.env.FB_APP_ID || process.env.META_APP_ID || "",
+    appSecret: process.env.FB_APP_SECRET || process.env.META_APP_SECRET || "",
+    redirectUri:
+      process.env.FB_REDIRECT_URI ||
+      ((process.env.RAILWAY_PUBLIC_DOMAIN
+        ? "https://" + process.env.RAILWAY_PUBLIC_DOMAIN
+        : process.env.PUBLIC_BASE_URL || "") + "/facebook/callback"),
+    pageId: process.env.FB_PAGE_ID || process.env.META_PAGE_ID || ""
+  };
+}
+
+function saveFacebookPageToken(pageToken, pageId) {
+  try {
+    fs.mkdirSync("data", { recursive: true });
+    fs.writeFileSync(
+      "data/facebook-page-token.json",
+      JSON.stringify({
+        access_token: pageToken,
+        page_id: pageId || null,
+        updated_at: new Date().toISOString()
+      })
+    );
+  } catch (error) {
+    console.error("Facebook Page token write failed:", error);
+  }
+}
+
+function loadFacebookPageToken() {
+  try {
+    if (process.env.FB_PAGE_ACCESS_TOKEN) {
+      return process.env.FB_PAGE_ACCESS_TOKEN;
+    }
+    const path = "data/facebook-page-token.json";
+    if (fs.existsSync(path)) {
+      const saved = JSON.parse(fs.readFileSync(path, "utf8"));
+      return saved?.access_token || "";
+    }
+  } catch (error) {
+    console.error("Facebook Page token load failed:", error);
+  }
+  return "";
+}
+
 async function ensureMetaToken() {
   if (!runtimeMetaToken) {
     loadStoredMetaToken();
@@ -306,6 +352,127 @@ document.getElementById("post").onclick = async () => {
 `);
 });
 
+app.get("/facebook/login", (req, res) => {
+  const config = getFacebookConfig();
+
+  if (!config.appId || !config.appSecret) {
+    return res.status(500).send(
+      "Facebook 연결을 위해 Railway Variables에 FB_APP_ID와 FB_APP_SECRET을 먼저 설정하세요."
+    );
+  }
+
+  const state = Buffer.from(
+    JSON.stringify({ t: Date.now() }),
+    "utf8"
+  ).toString("base64url");
+
+  const params = new URLSearchParams({
+    client_id: config.appId,
+    redirect_uri: config.redirectUri,
+    state,
+    scope: "pages_show_list,pages_read_engagement,pages_manage_posts"
+  });
+
+  res.redirect(
+    "https://www.facebook.com/" +
+    (process.env.META_API_VERSION || "v26.0") +
+    "/dialog/oauth?" +
+    params.toString()
+  );
+});
+
+app.get("/facebook/callback", async (req, res) => {
+  try {
+    const config = getFacebookConfig();
+
+    if (req.query.error) {
+      return res.status(400).send(
+        "Facebook 연결이 취소되었습니다: " +
+        String(req.query.error_description || req.query.error)
+      );
+    }
+
+    const code = String(req.query.code || "");
+    if (!code) {
+      return res.status(400).send("Facebook authorization code가 없습니다.");
+    }
+
+    const tokenUrl =
+      "https://graph.facebook.com/" +
+      (process.env.META_API_VERSION || "v26.0") +
+      "/oauth/access_token?" +
+      new URLSearchParams({
+        client_id: config.appId,
+        client_secret: config.appSecret,
+        redirect_uri: config.redirectUri,
+        code
+      }).toString();
+
+    const tokenResponse = await fetch(tokenUrl);
+    const tokenData = await tokenResponse.json();
+
+    if (!tokenResponse.ok || !tokenData?.access_token) {
+      return res.status(502).json({
+        ok: false,
+        error: tokenData?.error?.message || "Facebook 사용자 토큰 발급 실패"
+      });
+    }
+
+    const userToken = tokenData.access_token;
+    const accountsUrl =
+      "https://graph.facebook.com/" +
+      (process.env.META_API_VERSION || "v26.0") +
+      "/me/accounts?fields=id,name,access_token,tasks&access_token=" +
+      encodeURIComponent(userToken);
+
+    const accountsResponse = await fetch(accountsUrl);
+    const accountsData = await accountsResponse.json();
+
+    if (!accountsResponse.ok || !Array.isArray(accountsData?.data)) {
+      return res.status(502).json({
+        ok: false,
+        error:
+          accountsData?.error?.message ||
+          "관리 중인 Facebook Page를 찾지 못했습니다."
+      });
+    }
+
+    const selected =
+      accountsData.data.find(p => config.pageId && p.id === config.pageId) ||
+      accountsData.data.find(p => p.access_token);
+
+    if (!selected?.access_token || !selected?.id) {
+      return res.status(400).send(
+        "Facebook Page Access Token을 찾지 못했습니다. Page 권한을 확인하세요."
+      );
+    }
+
+    saveFacebookPageToken(selected.access_token, selected.id);
+
+    res.send(
+      "<h2>✅ Facebook 연결 완료</h2>" +
+      "<p>Page: " +
+      String(selected.name || selected.id) +
+      "</p>" +
+      "<p>이제 InstaPost Simple Version 03에서 Instagram + Facebook 동시 게시가 가능합니다.</p>"
+    );
+  } catch (error) {
+    console.error("Facebook OAuth callback failed:", error);
+    res.status(500).send("Facebook 연결 오류: " + error.message);
+  }
+});
+
+app.get("/facebook-status", (req, res) => {
+  const token = loadFacebookPageToken();
+  const config = getFacebookConfig();
+
+  res.json({
+    connected: !!token,
+    page_id: config.pageId || null,
+    note: "토큰 값은 표시하지 않습니다."
+  });
+});
+
 app.get("/meta-debug", async (req, res) => {
   try {
     const token = await ensureMetaToken();
@@ -334,8 +501,9 @@ app.get("/meta-debug", async (req, res) => {
 });
 
 async function publishFacebookPageReel(videoPath, description) {
-  const pageId = process.env.FB_PAGE_ID || process.env.META_PAGE_ID || "";
-  const pageToken = process.env.FB_PAGE_ACCESS_TOKEN || "";
+  const config = getFacebookConfig();
+  const pageId = config.pageId;
+  const pageToken = loadFacebookPageToken();
 
   if (!pageId || !pageToken) {
     return {
