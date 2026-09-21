@@ -751,10 +751,17 @@ app.get("/facebook-personal-share", (req, res) => {
     );
   }
 
-  const shareUrl =
-    "https://www.facebook.com/sharer/sharer.php?u=" +
-    encodeURIComponent(latestFacebookShareUrl);
-  res.redirect(shareUrl);
+  const config = getFacebookConfig();
+  const dialogUrl =
+    "https://www.facebook.com/dialog/share?" +
+    new URLSearchParams({
+      app_id: config.appId,
+      display: "popup",
+      href: latestFacebookShareUrl,
+      redirect_uri: config.redirectUri
+    }).toString();
+
+  res.redirect(dialogUrl);
 });
 
 app.get("/facebook-status", (req, res) => {
