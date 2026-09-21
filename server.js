@@ -52,83 +52,56 @@ async function ensureMetaToken() {
     throw new Error("META_ACCESS_TOKEN이 설정되지 않았습니다.");
   }
 
+  // Instagram Login tokens are validated against graph.instagram.com.
+  // Do not use /debug_token on graph.instagram.com for this token type.
   const version = process.env.META_API_VERSION || "v26.0";
-  const appId = process.env.META_APP_ID;
-  const appSecret = process.env.META_APP_SECRET;
-
-  // App credentials are optional for normal posting, but required for
-  // automatic long-lived token renewal.
-  if (!appId || !appSecret) {
-    return runtimeMetaToken;
-  }
+  const token = String(runtimeMetaToken).trim();
 
   try {
-    const debugUrl =
-      "https://graph.facebook.com/" +
+    const meUrl =
+      "https://graph.instagram.com/" +
       version +
-      "/debug_token?input_token=" +
-      encodeURIComponent(runtimeMetaToken) +
-      "&access_token=" +
-      encodeURIComponent(appId + "|" + appSecret);
+      "/me?fields=id,username&access_token=" +
+      encodeURIComponent(token);
 
-    const debugResponse = await fetch(debugUrl);
-    const debug = await debugResponse.json();
-    const data = debug?.data;
+    const meResponse = await fetch(meUrl);
+    const me = await meResponse.json();
 
-    if (!debugResponse.ok || !data) {
-      console.error("Meta token debug failed:", debug);
-      return runtimeMetaToken;
+    if (!meResponse.ok || !me?.id) {
+      console.error("Instagram access token validation failed:", me);
+      return token;
     }
 
-    const expiresAt = Number(data.expires_at || 0);
-    const daysLeft = expiresAt
-      ? (expiresAt * 1000 - Date.now()) / 86400000
-      : Infinity;
+    runtimeMetaToken = token;
 
-    // Renew automatically when the token has 14 days or less remaining.
-    if (daysLeft > 14) {
-      return runtimeMetaToken;
-    }
-
+    // Instagram Login long-lived tokens can be refreshed with the
+    // refresh_access_token endpoint. A freshly-created token may be too
+    // new to refresh yet; in that case keep using the current token.
     const refreshUrl =
-      "https://graph.facebook.com/" +
+      "https://graph.instagram.com/" +
       version +
-      "/oauth/access_token?grant_type=fb_exchange_token" +
-      "&client_id=" +
-      encodeURIComponent(appId) +
-      "&client_secret=" +
-      encodeURIComponent(appSecret) +
-      "&fb_exchange_token=" +
-      encodeURIComponent(runtimeMetaToken);
+      "/refresh_access_token?grant_type=ig_refresh_token&access_token=" +
+      encodeURIComponent(token);
 
     const refreshResponse = await fetch(refreshUrl);
     const refreshed = await refreshResponse.json();
 
-    if (!refreshResponse.ok || !refreshed?.access_token) {
-      console.error("Meta token auto-renew failed:", refreshed);
-      if (expiresAt && expiresAt * 1000 <= Date.now()) {
-        throw new Error(
-          "Meta 액세스 토큰이 만료되었습니다. 최초 1회 새 장기 토큰 연결이 필요합니다."
-        );
-      }
-      return runtimeMetaToken;
-    }
-
-    runtimeMetaToken = refreshed.access_token;
-    const newExpiresAt =
-      refreshed.expires_at ||
-      (refreshed.expires_in
+    if (refreshResponse.ok && refreshed?.access_token) {
+      runtimeMetaToken = String(refreshed.access_token).trim();
+      const expiresAt = refreshed.expires_in
         ? Math.floor(Date.now() / 1000) + Number(refreshed.expires_in)
-        : null);
-
-    saveStoredMetaToken(runtimeMetaToken, newExpiresAt);
-    console.log("Meta access token renewed automatically.");
+        : null;
+      saveStoredMetaToken(runtimeMetaToken, expiresAt);
+      console.log("Instagram access token refreshed automatically.");
+    } else {
+      // Refresh can legitimately fail for a newly-issued token.
+      console.log("Instagram token refresh not applied:", refreshed);
+    }
 
     return runtimeMetaToken;
   } catch (error) {
-    if (error.message.includes("최초 1회")) throw error;
-    console.error("Meta token renewal check failed:", error);
-    return runtimeMetaToken;
+    console.error("Instagram token check failed:", error);
+    return token;
   }
 }
 
@@ -337,38 +310,23 @@ app.get("/meta-debug", async (req, res) => {
   try {
     const token = await ensureMetaToken();
     const version = process.env.META_API_VERSION || "v26.0";
-    const businessId = process.env.META_BUSINESS_ID || "2117489702486564";
 
-    if (!token) {
-      return res.status(500).json({ error: "META_ACCESS_TOKEN이 없습니다." });
-    }
+    const url =
+      "https://graph.instagram.com/" +
+      version +
+      "/me?fields=id,username,account_type&access_token=" +
+      encodeURIComponent(token);
 
-    const getJson = async (path) => {
-      const url =
-        "https://graph.facebook.com/" +
-        version +
-        path +
-        (path.includes("?") ? "&" : "?") +
-        "access_token=" +
-        encodeURIComponent(token);
-      const response = await fetch(url);
-      const data = await response.json();
-      return { ok: response.ok, status: response.status, data };
-    };
+    const response = await fetch(url);
+    const data = await response.json();
 
-    const me = await getJson("/me?fields=id,name,username");
-    const accounts = await getJson(
-      "/me/accounts?fields=id,name,instagram_business_account"
-    );
-    const businessPages = await getJson(
-      "/" + businessId + "/client_pages?fields=id,name,instagram_business_account"
-    );
-
-    res.json({
-      me,
-      accounts,
-      businessPages,
-      note: "토큰은 이 응답에 표시하지 않습니다."
+    res.status(response.ok ? 200 : response.status).json({
+      ok: response.ok && !!data?.id,
+      status: response.status,
+      me: data,
+      api_host: "graph.instagram.com",
+      auth_type: "Instagram API with Instagram Login",
+      note: "토큰 자체는 응답에 표시하지 않습니다."
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -390,97 +348,32 @@ app.post(
 
       const token = await ensureMetaToken();
 
-      let igUserId =
-        process.env.IG_USER_ID || "17841425033449176";
+      let igUserId = process.env.IG_USER_ID || "";
 
-      const publicUrl =
-        process.env.PUBLIC_BASE_URL ||
-        (process.env.RAILWAY_PUBLIC_DOMAIN
-          ? "https://" + process.env.RAILWAY_PUBLIC_DOMAIN
-          : "");
+      if (!igUserId) {
+        const meUrl =
+          "https://graph.instagram.com/" +
+          version +
+          "/me?fields=id,username&access_token=" +
+          encodeURIComponent(token);
+        const meResponse = await fetch(meUrl);
+        const me = await meResponse.json();
 
-      if (!token) {
+        if (me?.id) {
+          igUserId = me.id;
+        }
+      }
+
+      if (!igUserId) {
+        fs.rmSync(req.file.path, { force: true });
         return res.status(500).json({
           error:
-            "META_ACCESS_TOKEN을 Railway Variables에 설정하세요."
-        });
-      }
-
-      const videoUrl =
-        publicUrl.replace(/\/$/,"") +
-        "/uploads/" +
-        req.file.filename;
-
-      const version =
-        process.env.META_API_VERSION || "v26.0";
-
-      if (!igUserId) {
-        try {
-          const meUrl =
-            "https://graph.facebook.com/" +
-            version +
-            "/me?fields=id,username&access_token=" +
-            encodeURIComponent(token);
-          const meResponse = await fetch(meUrl);
-          const me = await meResponse.json();
-
-          if (me?.username && me?.id) {
-            igUserId = me.id;
-          }
-        } catch (lookupError) {
-          console.error("Instagram user lookup failed:", lookupError);
-        }
-      }
-
-      if (!igUserId) {
-        try {
-          const accountsUrl =
-            "https://graph.facebook.com/" +
-            version +
-            "/me/accounts?fields=id,name,instagram_business_account&access_token=" +
-            encodeURIComponent(token);
-          const accountsResponse = await fetch(accountsUrl);
-          const accounts = await accountsResponse.json();
-          const pageWithInstagram = (accounts.data || []).find(
-            page => page.instagram_business_account?.id
-          );
-          igUserId =
-            pageWithInstagram?.instagram_business_account?.id || "";
-        } catch (lookupError) {
-          console.error("Facebook Page Instagram lookup failed:", lookupError);
-        }
-      }
-
-      if (!igUserId) {
-        try {
-          const pageId = process.env.META_PAGE_ID || "126707728983019";
-          const pageUrl =
-            "https://graph.facebook.com/" +
-            version +
-            "/" +
-            pageId +
-            "?fields=id,name,instagram_business_account{id,username}&access_token=" +
-            encodeURIComponent(token);
-          const pageResponse = await fetch(pageUrl);
-          const page = await pageResponse.json();
-          if (page?.instagram_business_account?.id) {
-            igUserId = page.instagram_business_account.id;
-          }
-          console.log("Direct Page Instagram lookup:", page);
-        } catch (lookupError) {
-          console.error("Direct Page Instagram lookup failed:", lookupError);
-        }
-      }
-
-      if (!igUserId) {
-        return res.status(500).json({
-          error:
-            "Instagram 프로 계정 ID를 자동으로 찾지 못했습니다. IG_USER_ID를 Railway Variables에 추가하세요."
+            "Instagram 사용자 ID를 찾지 못했습니다. IG_USER_ID를 Railway Variables에 설정하세요."
         });
       }
 
       const createUrl =
-        "https://graph.facebook.com/" +
+        "https://graph.instagram.com/" +
         version +
         "/" +
         igUserId +
@@ -535,7 +428,7 @@ app.post(
         );
 
         const statusUrl =
-          "https://graph.facebook.com/" +
+          "https://graph.instagram.com/" +
           version +
           "/" +
           creationId +
@@ -581,7 +474,7 @@ app.post(
       }
 
       const publishUrl =
-        "https://graph.facebook.com/" +
+        "https://graph.instagram.com/" +
         version +
         "/" +
         igUserId +
