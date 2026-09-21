@@ -1012,10 +1012,19 @@ app.post(
         });
       }
 
-      const facebookResult = await publishFacebookPageReel(
-        req.file.path,
-        req.body.caption || ""
-      );
+      console.log("Instagram publish completed. Starting Facebook Reel publish...");
+      const facebookResult = await Promise.race([
+        publishFacebookPageReel(
+          req.file.path,
+          req.body.caption || ""
+        ),
+        new Promise((_, reject) =>
+          setTimeout(
+            () => reject(new Error("Facebook Reel 게시가 45초 이상 걸려 중단되었습니다.")),
+            45000
+          )
+        )
+      ]);
 
       fs.rmSync(req.file.path, { force: true });
 
