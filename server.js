@@ -44,6 +44,16 @@ function saveStoredMetaToken(accessToken, expiresAt) {
 }
 
 
+async function fetchWithTimeout(url, options = {}, timeoutMs = 20000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function getFacebookConfig() {
   return {
     appId: process.env.FB_APP_ID || process.env.META_APP_ID || "",
@@ -501,7 +511,8 @@ app.get("/facebook/callback", async (req, res) => {
         code
       }).toString();
 
-    const tokenResponse = await fetch(tokenUrl);
+    console.log("Facebook OAuth callback: exchanging authorization code...");
+    const tokenResponse = await fetchWithTimeout(tokenUrl);
     const tokenData = await tokenResponse.json();
 
     if (!tokenResponse.ok || !tokenData?.access_token) {
@@ -518,16 +529,21 @@ app.get("/facebook/callback", async (req, res) => {
       "/me/accounts?fields=id,name,access_token,tasks&access_token=" +
       encodeURIComponent(userToken);
 
-    const accountsResponse = await fetch(accountsUrl);
+    console.log("Facebook OAuth callback: loading managed Pages...");
+    const accountsResponse = await fetchWithTimeout(accountsUrl);
     const accountsData = await accountsResponse.json();
 
     if (!accountsResponse.ok || !Array.isArray(accountsData?.data)) {
-      return res.status(502).json({
-        ok: false,
-        error:
+      console.error("Facebook Page lookup failed:", accountsData);
+      return res.status(502).send(
+        "<h2>❌ Facebook Page 연결 실패</h2>" +
+        "<p>" +
+        String(
           accountsData?.error?.message ||
           "관리 중인 Facebook Page를 찾지 못했습니다."
-      });
+        ) +
+        "</p><p>Facebook 권한 승인 후 Page 접근 권한이 있는지 확인하세요.</p>"
+      );
     }
 
     const selected =
@@ -551,7 +567,15 @@ app.get("/facebook/callback", async (req, res) => {
     );
   } catch (error) {
     console.error("Facebook OAuth callback failed:", error);
-    res.status(500).send("Facebook 연결 오류: " + error.message);
+    const message =
+      error?.name === "AbortError"
+        ? "Facebook 서버 응답이 너무 오래 걸렸습니다. 다시 연결해 주세요."
+        : (error?.message || "알 수 없는 오류");
+    res.status(500).send(
+      "<h2>❌ Facebook 연결 오류</h2>" +
+      "<p>" + String(message) + "</p>" +
+      "<p><a href='/'>InstaPost Simple로 돌아가기</a></p>"
+    );
   }
 });
 
