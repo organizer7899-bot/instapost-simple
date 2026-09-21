@@ -355,9 +355,9 @@ document.getElementById("post").onclick = async () => {
 app.get("/facebook/login", (req, res) => {
   const config = getFacebookConfig();
 
-  if (!config.appId || !config.appSecret) {
+  if (!config.appId) {
     return res.status(500).send(
-      "Facebook 연결을 위해 Railway Variables에 FB_APP_ID와 FB_APP_SECRET을 먼저 설정하세요."
+      "Facebook 연결을 위해 Railway Variables에 FB_APP_ID를 설정하세요."
     );
   }
 
@@ -384,6 +384,12 @@ app.get("/facebook/login", (req, res) => {
 app.get("/facebook/callback", async (req, res) => {
   try {
     const config = getFacebookConfig();
+
+    if (!config.appId || !config.appSecret) {
+      return res.status(500).send(
+        "Facebook 콜백에 FB_APP_ID와 FB_APP_SECRET이 필요합니다. Railway Variables를 확인하세요."
+      );
+    }
 
     if (req.query.error) {
       return res.status(400).send(
