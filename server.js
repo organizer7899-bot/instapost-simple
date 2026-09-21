@@ -12,6 +12,8 @@ const TOKEN_STORE_PATH =
   process.env.META_TOKEN_STORE_PATH || "data/meta-token.json";
 
 let runtimeMetaToken = process.env.META_ACCESS_TOKEN || "";
+
+const FACEBOOK_LAST_POST_PATH = "data/facebook-last-post.json";
 let latestFacebookShareUrl = "";
 
 function loadStoredMetaToken() {
@@ -111,6 +113,39 @@ function loadFacebookPageToken() {
   return loadFacebookPageConnection().access_token;
 }
 
+function loadLatestFacebookShareUrl() {
+  try {
+    if (fs.existsSync(FACEBOOK_LAST_POST_PATH)) {
+      const saved = JSON.parse(
+        fs.readFileSync(FACEBOOK_LAST_POST_PATH, "utf8")
+      );
+      if (saved?.share_url) {
+        latestFacebookShareUrl = String(saved.share_url);
+      }
+    }
+  } catch (error) {
+    console.error("Saved Facebook share URL load failed:", error);
+  }
+}
+
+function saveLatestFacebookShareUrl(shareUrl, videoId) {
+  try {
+    if (!shareUrl) return;
+    fs.mkdirSync("data", { recursive: true });
+    fs.writeFileSync(
+      FACEBOOK_LAST_POST_PATH,
+      JSON.stringify({
+        share_url: shareUrl,
+        video_id: videoId || null,
+        updated_at: new Date().toISOString()
+      })
+    );
+    latestFacebookShareUrl = shareUrl;
+  } catch (error) {
+    console.error("Facebook share URL write failed:", error);
+  }
+}
+
 async function ensureMetaToken() {
   if (!runtimeMetaToken) {
     loadStoredMetaToken();
@@ -174,6 +209,7 @@ async function ensureMetaToken() {
 }
 
 loadStoredMetaToken();
+loadLatestFacebookShareUrl();
 
 fs.mkdirSync("uploads", { recursive: true });
 
@@ -408,7 +444,11 @@ async function publishVideo() {
 
     if (fb && fb.ok) {
       facebookShareUrl = fb.shareUrl || "";
-      latestFacebookShareUrl = facebookShareUrl;
+      if (facebookShareUrl) {
+        document.getElementById("personalShare").href =
+          "https://www.facebook.com/sharer/sharer.php?u=" +
+          encodeURIComponent(facebookShareUrl);
+      }
       document.getElementById("shareInfo").textContent = "Facebook 게시 완료 — 아래 개인 피드 공유 버튼을 눌러주세요.";
       fileInfo.textContent = "✅ Instagram + Facebook 게시 완료";
       result.textContent = "③ Instagram + Facebook 동시 게시 완료";
@@ -701,11 +741,16 @@ app.get("/facebook/callback", async (req, res) => {
 });
 
 app.get("/facebook-personal-share", (req, res) => {
+  loadLatestFacebookShareUrl();
+
   if (!latestFacebookShareUrl) {
     return res.status(400).send(
-      "<h2>Facebook 개인 피드 공유</h2><p>먼저 Instagram + Facebook에 게시해 주세요.</p><p><a href='/'>돌아가기</a></p>"
+      "<!doctype html><html lang='ko'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>" +
+      "<style>body{font-family:Arial,sans-serif;padding:24px;background:#111;color:#fff}a{display:block;margin-top:18px;padding:15px;background:#fff;color:#111;text-decoration:none;text-align:center;border-radius:12px;font-weight:bold}</style>" +
+      "</head><body><h2>Facebook 개인 피드 공유</h2><p>아직 공유할 Facebook 게시물이 없습니다.</p><p>먼저 <b>Instagram + Facebook에 게시</b>를 완료해 주세요.</p><a href='/'>InstaPost로 돌아가기</a></body></html>"
     );
   }
+
   const shareUrl =
     "https://www.facebook.com/sharer/sharer.php?u=" +
     encodeURIComponent(latestFacebookShareUrl);
@@ -833,11 +878,31 @@ async function publishFacebookPageReel(videoPath, description) {
     );
   }
 
+  let shareUrl =
+    "https://www.facebook.com/" + pageId + "/videos/" + started.video_id;
+
+  try {
+    const permalinkResponse = await fetch(
+      "https://graph.facebook.com/" +
+        version +
+        "/" +
+        encodeURIComponent(started.video_id) +
+        "?fields=permalink_url&access_token=" +
+        encodeURIComponent(pageToken)
+    );
+    const permalinkData = await permalinkResponse.json();
+    if (permalinkResponse.ok && permalinkData?.permalink_url) {
+      shareUrl = String(permalinkData.permalink_url);
+    }
+  } catch (error) {
+    console.error("Facebook permalink lookup failed:", error);
+  }
+
   return {
     skipped: false,
     ok: true,
     videoId: started.video_id,
-    shareUrl: "https://www.facebook.com/" + pageId + "/videos/" + started.video_id
+    shareUrl
   };
 }
 
@@ -1057,6 +1122,13 @@ app.post(
       ]);
 
       fs.rmSync(req.file.path, { force: true });
+
+      if (facebookResult?.ok && facebookResult?.shareUrl) {
+        saveLatestFacebookShareUrl(
+          facebookResult.shareUrl,
+          facebookResult.videoId
+        );
+      }
 
       res.json({
         ok: true,
