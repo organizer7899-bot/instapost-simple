@@ -287,6 +287,7 @@ video{
 >
 
 <video id="preview" controls hidden></video>
+<div id="fileInfo" style="margin-top:12px;color:#bbb"></div>
 
 </div>
 
@@ -312,6 +313,7 @@ const video = document.getElementById("video");
 const preview = document.getElementById("preview");
 const result = document.getElementById("result");
 const fbStatus = document.getElementById("fbStatus");
+const fileInfo = document.getElementById("fileInfo");
 
 async function checkFacebookStatus() {
   try {
@@ -338,10 +340,18 @@ video.onchange = () => {
 
   const file = video.files[0];
 
-  if (!file) return;
+  if (!file) {
+    preview.hidden = true;
+    fileInfo.textContent = "";
+    return;
+  }
 
   preview.src = URL.createObjectURL(file);
   preview.hidden = false;
+
+  const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+  fileInfo.textContent =
+    "✅ 영상 선택 완료 — " + file.name + " (" + sizeMB + " MB)";
 
 };
 
@@ -354,7 +364,9 @@ document.getElementById("post").onclick = async () => {
     return;
   }
 
-  result.textContent = "Instagram 게시 준비 중...";
+  result.textContent = "⏳ 영상 업로드 준비 중...";
+  fileInfo.textContent =
+    "📤 " + file.name + " — 서버로 영상 업로드 중...";
 
   const form = new FormData();
 
@@ -374,6 +386,7 @@ document.getElementById("post").onclick = async () => {
       }
     );
 
+    result.textContent = "⏳ Instagram + Facebook 게시 처리 중...";
     const data = await response.json();
 
     if (!response.ok) {
@@ -382,17 +395,21 @@ document.getElementById("post").onclick = async () => {
 
     const fb = data.facebook;
     if (fb && fb.skipped) {
+      fileInfo.textContent = "⚠️ Instagram 게시 완료 / Facebook은 연결 상태를 확인하세요.";
       result.textContent =
         "✅ Instagram 게시 완료\n⚠️ Facebook: " + (fb.reason || "연결되지 않음");
     } else if (fb && fb.ok) {
+      fileInfo.textContent = "✅ Instagram + Facebook 게시 완료";
       result.textContent =
         "✅ Instagram + Facebook 동시 게시 완료";
     } else {
+      fileInfo.textContent = "✅ Instagram 게시 완료";
       result.textContent = "✅ Instagram 게시 완료";
     }
 
   } catch(error) {
 
+    fileInfo.textContent = "❌ 게시 실패";
     result.textContent =
       "❌ " + error.message;
 
