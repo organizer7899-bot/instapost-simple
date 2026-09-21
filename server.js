@@ -429,13 +429,10 @@ app.get("/facebook/login", (req, res) => {
     config_id: config.configId,
     response_type: "code",
     override_default_response_type: "true",
-    auth_type: "rerequest"
   });
 
   const loginUrl =
-    "https://www.facebook.com/" +
-    (process.env.META_API_VERSION || "v26.0") +
-    "/dialog/oauth?" +
+    "https://www.facebook.com/dialog/oauth?" +
     params.toString();
 
   res.redirect(loginUrl);
@@ -471,9 +468,7 @@ app.get("/facebook-config", (req, res) => {
     config_id: config.configId,
     redirect_uri: config.redirectUri,
     login_url:
-      "https://www.facebook.com/" +
-      (process.env.META_API_VERSION || "v26.0") +
-      "/dialog/oauth?" +
+      "https://www.facebook.com/dialog/oauth?" +
       params.toString()
   });
 });
