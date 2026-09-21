@@ -307,6 +307,9 @@ video{
 Instagram + Facebook에 게시
 </button>
 
+<button id="personalShare" type="button">Facebook 개인 피드 공유</button>
+<div id="shareInfo" style="margin-top:10px;color:#bbb"></div>
+
 <div id="result"></div>
 
 </div>
@@ -320,6 +323,15 @@ const result = document.getElementById("result");
 const fbStatus = document.getElementById("fbStatus");
 const fileInfo = document.getElementById("fileInfo");
 const postButton = document.getElementById("post");
+let facebookShareUrl = "";
+
+document.getElementById("personalShare").onclick = function () {
+  if (!facebookShareUrl) {
+    document.getElementById("shareInfo").textContent = "먼저 Instagram + Facebook에 게시하세요. 게시 완료 후 개인 피드 공유가 가능합니다.";
+    return;
+  }
+  window.open("https://www.facebook.com/sharer/sharer.php?u=" + encodeURIComponent(facebookShareUrl), "_blank");
+};
 
 async function checkFacebookStatus() {
   try {
@@ -815,7 +827,8 @@ async function publishFacebookPageReel(videoPath, description) {
   return {
     skipped: false,
     ok: true,
-    videoId: started.video_id
+    videoId: started.video_id,
+    shareUrl: "https://www.facebook.com/" + pageId + "/videos/" + started.video_id
   };
 }
 
