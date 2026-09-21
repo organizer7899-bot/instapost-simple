@@ -475,6 +475,18 @@ app.get("/facebook-config", (req, res) => {
 
 app.use(express.json());
 
+app.get("/facebook-env-debug", (req, res) => {
+  const config = getFacebookConfig();
+  res.json({
+    ok: true,
+    app_id_present: !!config.appId,
+    app_secret_present: !!config.appSecret,
+    config_id: config.configId,
+    redirect_uri: config.redirectUri,
+    page_id_present: !!config.pageId
+  });
+});
+
 app.get("/facebook/callback", async (req, res) => {
   try {
     const config = getFacebookConfig();
