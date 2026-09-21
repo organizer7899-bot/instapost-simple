@@ -421,12 +421,15 @@ app.get("/facebook/login", (req, res) => {
     "utf8"
   ).toString("base64url");
 
+  // This app uses Meta's Facebook Login for Business configuration.
+  // The configuration ID controls the assets/permissions selected in Meta.
   const params = new URLSearchParams({
     client_id: config.appId,
     redirect_uri: config.redirectUri,
     state,
+    config_id: config.configId,
     response_type: "code",
-    scope: "pages_show_list,pages_read_engagement,pages_manage_posts"
+    override_default_response_type: "true"
   });
 
   const loginUrl =
