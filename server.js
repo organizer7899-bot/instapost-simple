@@ -584,17 +584,62 @@ app.get("/facebook/callback", async (req, res) => {
     }
 
     if (!selected?.access_token || !selected?.id) {
+      // Diagnostic only: never expose the actual user/Page access token.
+      // Show the permission state and Page count so the exact missing
+      // Facebook Login for Business permission can be identified.
+      let permissionData = null;
+      let userData = null;
+
+      try {
+        const permissionUrl =
+          "https://graph.facebook.com/" +
+          (process.env.META_API_VERSION || "v26.0") +
+          "/me/permissions?access_token=" +
+          encodeURIComponent(userToken);
+        const permissionResponse = await fetchWithTimeout(permissionUrl);
+        permissionData = await permissionResponse.json();
+      } catch (diagnosticError) {
+        console.error("Facebook permission diagnostic failed:", diagnosticError);
+      }
+
+      try {
+        const userUrl =
+          "https://graph.facebook.com/" +
+          (process.env.META_API_VERSION || "v26.0") +
+          "/me?fields=id,name&access_token=" +
+          encodeURIComponent(userToken);
+        const userResponse = await fetchWithTimeout(userUrl);
+        userData = await userResponse.json();
+      } catch (diagnosticError) {
+        console.error("Facebook user diagnostic failed:", diagnosticError);
+      }
+
       const pageNames = accountsData.data
         .map(p => p?.name || p?.id)
         .filter(Boolean)
         .join(", ");
 
+      const permissionSummary = Array.isArray(permissionData?.data)
+        ? permissionData.data
+            .map(p => String(p.status || "") + ":" + String(p.permission || ""))
+            .join("<br>")
+        : "권한 정보를 가져오지 못했습니다.";
+
       return res.status(400).send(
         "<h2>❌ Facebook Page Access Token을 찾지 못했습니다.</h2>" +
-        "<p>로그인에서 확인된 Page: " +
+        "<p><b>로그인 사용자:</b> " +
+        String(userData?.name || userData?.id || "확인 안 됨") +
+        "</p>" +
+        "<p><b>확인된 Page 수:</b> " +
+        String(accountsData.data.length) +
+        "</p>" +
+        "<p><b>확인된 Page:</b> " +
         String(pageNames || "없음") +
         "</p>" +
-        "<p>Page 권한 승인 상태를 확인해 주세요.</p>"
+        "<p><b>현재 승인된 권한:</b><br>" +
+        permissionSummary +
+        "</p>" +
+        "<p>이 화면을 캡처해서 보내주세요. 토큰은 표시하지 않습니다.</p>"
       );
     }
 
