@@ -367,35 +367,23 @@ app.get("/facebook/login", (req, res) => {
     "utf8"
   ).toString("base64url");
 
-  const html = [
-    "<!doctype html>",
-    '<html lang="ko"><head><meta charset="utf-8">',
-    '<meta name="viewport" content="width=device-width,initial-scale=1">',
-    "<title>Facebook 연결</title>",
-    "<style>body{font-family:Arial,sans-serif;background:#111;color:#fff;padding:30px;text-align:center}button{padding:16px 24px;border:0;border-radius:12px;font-size:18px;font-weight:bold}#status{margin-top:20px;line-height:1.6}</style>",
-    "</head><body>",
-    "<h2>Facebook Page 연결</h2>",
-    "<p>아래 버튼을 누르면 Facebook Login for Business가 시작됩니다.</p>",
-    '<button id="login">Facebook으로 연결</button>',
-    '<div id="status"></div>',
-    "<script>",
-    "window.fbAsyncInit=function(){FB.init({appId:" + JSON.stringify(config.appId) + ',cookie:true,xfbml:true,version:"' + (process.env.META_API_VERSION || "v26.0") + '"});};',
-    'document.getElementById("login").onclick=function(){',
-    'var status=document.getElementById("status");',
-    'status.textContent="Facebook 연결 화면을 여는 중...";',
-    "FB.login(function(response){",
-    "if(response&&response.authResponse&&response.authResponse.code){",
-    'status.textContent="인증 코드를 받았습니다. 연결을 완료하는 중...";',
-    "var code=encodeURIComponent(response.authResponse.code);",
-    "window.location.href=" + JSON.stringify(config.redirectUri) + '+"?code="+code+"&state="+encodeURIComponent(' + JSON.stringify(state) + ");",
-    "}else{status.textContent="Facebook 인증이 완료되지 않았습니다.";}",
-    "},{config_id:" + JSON.stringify(config.configId) + ',response_type:"code",override_default_response_type:true,auth_type:"rerequest"});',
-    "};",
-    '(function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0];if(d.getElementById(id))return;js=d.createElement(s);js.id=id;js.src="https://connect.facebook.net/en_US/sdk.js";fjs.parentNode.insertBefore(js,fjs);})(document,"script","facebook-jssdk");',
-    "</script></body></html>"
-  ].join("\n");
+  const params = new URLSearchParams({
+    client_id: config.appId,
+    redirect_uri: config.redirectUri,
+    state,
+    config_id: config.configId,
+    response_type: "code",
+    override_default_response_type: "true",
+    auth_type: "rerequest"
+  });
 
-  res.type("html").send(html);
+  const loginUrl =
+    "https://www.facebook.com/" +
+    (process.env.META_API_VERSION || "v26.0") +
+    "/dialog/oauth?" +
+    params.toString();
+
+  res.redirect(loginUrl);
 });
 
 app.get("/facebook-config", (req, res) => {
