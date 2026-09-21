@@ -555,13 +555,46 @@ app.get("/facebook/callback", async (req, res) => {
       );
     }
 
-    const selected =
+    // Some Facebook Login for Business responses list the Page but do not
+    // include access_token in /me/accounts. In that case, request the token
+    // directly from the selected Page using the freshly issued user token.
+    let selected =
       accountsData.data.find(p => config.pageId && p.id === config.pageId) ||
-      accountsData.data.find(p => p.access_token);
+      accountsData.data.find(p => p.access_token) ||
+      accountsData.data[0];
+
+    if (selected?.id && !selected?.access_token) {
+      const pageUrl =
+        "https://graph.facebook.com/" +
+        (process.env.META_API_VERSION || "v26.0") +
+        "/" +
+        encodeURIComponent(selected.id) +
+        "?fields=id,name,access_token,tasks&access_token=" +
+        encodeURIComponent(userToken);
+
+      console.log("Facebook OAuth callback: requesting Page access token directly...");
+      const pageResponse = await fetchWithTimeout(pageUrl);
+      const pageData = await pageResponse.json();
+
+      if (pageResponse.ok && pageData?.access_token) {
+        selected = pageData;
+      } else {
+        console.error("Facebook direct Page token lookup failed:", pageData);
+      }
+    }
 
     if (!selected?.access_token || !selected?.id) {
+      const pageNames = accountsData.data
+        .map(p => p?.name || p?.id)
+        .filter(Boolean)
+        .join(", ");
+
       return res.status(400).send(
-        "Facebook Page Access Token을 찾지 못했습니다. Page 권한을 확인하세요."
+        "<h2>❌ Facebook Page Access Token을 찾지 못했습니다.</h2>" +
+        "<p>로그인에서 확인된 Page: " +
+        String(pageNames || "없음") +
+        "</p>" +
+        "<p>Page 권한 승인 상태를 확인해 주세요.</p>"
       );
     }
 
