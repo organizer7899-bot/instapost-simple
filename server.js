@@ -425,9 +425,8 @@ app.get("/facebook/login", (req, res) => {
     client_id: config.appId,
     redirect_uri: config.redirectUri,
     state,
-    config_id: config.configId,
     response_type: "code",
-    override_default_response_type: "true"
+    scope: "pages_show_list,pages_read_engagement,pages_manage_posts"
   });
 
   const loginUrl =
