@@ -11,13 +11,13 @@ const PORT = process.env.PORT || 3000;
 const TOKEN_STORE_PATH =
   process.env.META_TOKEN_STORE_PATH || "data/meta-token.json";
 
-let runtimeMetaToken = process.env.META_ACCESS_TOKEN || "";
+function normalizeMetaToken(value) {\n  return String(value || "").replace(/\\s+/g, "");\n}\n\nlet runtimeMetaToken = normalizeMetaToken(process.env.META_ACCESS_TOKEN);
 
 function loadStoredMetaToken() {
   try {
     if (fs.existsSync(TOKEN_STORE_PATH)) {
       const saved = JSON.parse(fs.readFileSync(TOKEN_STORE_PATH, "utf8"));
-      if (saved?.access_token) runtimeMetaToken = saved.access_token;
+      if (saved?.access_token) runtimeMetaToken = normalizeMetaToken(saved.access_token);
     }
   } catch (error) {
     console.error("Saved Meta token load failed:", error);
@@ -111,7 +111,7 @@ async function ensureMetaToken() {
       return runtimeMetaToken;
     }
 
-    runtimeMetaToken = refreshed.access_token;
+    runtimeMetaToken = normalizeMetaToken(refreshed.access_token);
     const newExpiresAt =
       refreshed.expires_at ||
       (refreshed.expires_in
