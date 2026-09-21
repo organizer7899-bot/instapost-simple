@@ -15,6 +15,7 @@ let runtimeMetaToken = process.env.META_ACCESS_TOKEN || "";
 
 const FACEBOOK_LAST_POST_PATH = "data/facebook-last-post.json";
 let latestFacebookShareUrl = "";
+let latestFacebookVideoId = "";
 
 // Facebook Reel publishing runs in the background so the browser never waits
 // for the long Facebook upload/publish cycle.
@@ -126,6 +127,9 @@ function loadLatestFacebookShareUrl() {
       if (saved?.share_url) {
         latestFacebookShareUrl = String(saved.share_url);
       }
+      if (saved?.video_id) {
+        latestFacebookVideoId = String(saved.video_id);
+      }
     }
   } catch (error) {
     console.error("Saved Facebook share URL load failed:", error);
@@ -145,6 +149,7 @@ function saveLatestFacebookShareUrl(shareUrl, videoId) {
       })
     );
     latestFacebookShareUrl = shareUrl;
+    if (videoId) latestFacebookVideoId = String(videoId);
   } catch (error) {
     console.error("Facebook share URL write failed:", error);
   }
@@ -822,11 +827,23 @@ app.get("/facebook-personal-share", (req, res) => {
     );
   }
 
-  // Do not use sharer.php or the legacy Share Dialog here.
-  // Those flows can turn a Reel URL into a text-only post on mobile.
-  // Open the actual Reel permalink so the user can use Facebook's native
-  // Reel "공유 → 피드에 공유" action.
-  res.redirect(latestFacebookShareUrl);
+  // Always build the destination from the Facebook video ID.
+  // This prevents a relative /reel/... path from ever being resolved
+  // against this Railway app.
+  if (latestFacebookVideoId) {
+    const reelUrl = "https://www.facebook.com/reel/" + encodeURIComponent(latestFacebookVideoId) + "/";
+    return res.redirect(reelUrl);
+  }
+
+  // Backward compatibility for older saved posts.
+  const savedUrl = String(latestFacebookShareUrl || "").trim();
+  if (savedUrl.indexOf("https://www.facebook.com/") === 0 || savedUrl.indexOf("http://www.facebook.com/") === 0) {
+    return res.redirect(savedUrl);
+  }
+
+  return res.status(400).send(
+    "<h2>Facebook 릴 주소를 확인하지 못했습니다.</h2><p>먼저 Instagram + Facebook에 게시해 주세요.</p><p><a href='/' >돌아가기</a></p>"
+  );
 });
 
 app.get("/facebook-status", (req, res) => {
