@@ -254,24 +254,9 @@ button{
   color:#111;
   font-size:17px;
   font-weight:bold;
-  cursor:pointer;
-  transition:background .15s, transform .08s
+
 }
-button:active{
-  transform:scale(.98)
-}
-button.posting{
-  background:#22c55e;
-  color:#fff
-}
-button.done{
-  background:#2563eb;
-  color:#fff
-}
-button.failed{
-  background:#dc2626;
-  color:#fff
-}
+
 video{
   width:100%;
   margin-top:15px;
@@ -382,10 +367,7 @@ postButton.onclick = async () => {
     return;
   }
 
-  postButton.classList.remove("done","failed");
-  postButton.classList.add("posting");
-  postButton.textContent = "⏳ 게시 중...";
-  result.textContent = "⏳ 영상 업로드 준비 중...";
+  result.textContent = "① 영상 업로드 준비 중...";
   fileInfo.textContent =
     "📤 " + file.name + " — 서버로 영상 업로드 중...";
 
@@ -407,7 +389,7 @@ postButton.onclick = async () => {
       }
     );
 
-    result.textContent = "⏳ Instagram + Facebook 게시 처리 중...";
+    result.textContent = "② 서버 업로드 완료 — Instagram 처리 중...";
     const data = await response.json();
 
     if (!response.ok) {
@@ -417,31 +399,19 @@ postButton.onclick = async () => {
     const fb = data.facebook;
     if (fb && fb.skipped) {
       fileInfo.textContent = "⚠️ Instagram 게시 완료 / Facebook은 연결 상태를 확인하세요.";
-      postButton.classList.remove("posting");
-      postButton.classList.add("done");
-      postButton.textContent = "✅ 게시 완료";
       result.textContent =
-        "✅ Instagram 게시 완료\n⚠️ Facebook: " + (fb.reason || "연결되지 않음");
+        "③ Instagram 게시 완료\n⚠️ Facebook: " + (fb.reason || "연결되지 않음");
     } else if (fb && fb.ok) {
       fileInfo.textContent = "✅ Instagram + Facebook 게시 완료";
-      postButton.classList.remove("posting");
-      postButton.classList.add("done");
-      postButton.textContent = "✅ 게시 완료";
       result.textContent =
-        "✅ Instagram + Facebook 동시 게시 완료";
+        "③ Instagram + Facebook 동시 게시 완료";
     } else {
       fileInfo.textContent = "✅ Instagram 게시 완료";
-      postButton.classList.remove("posting");
-      postButton.classList.add("done");
-      postButton.textContent = "✅ 게시 완료";
-      result.textContent = "✅ Instagram 게시 완료";
+      result.textContent = "③ Instagram 게시 완료";
     }
 
   } catch(error) {
 
-    postButton.classList.remove("posting");
-    postButton.classList.add("failed");
-    postButton.textContent = "❌ 게시 실패";
     fileInfo.textContent = "❌ 게시 실패";
     result.textContent =
       "❌ " + error.message;
