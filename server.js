@@ -15,6 +15,9 @@ let runtimeMetaToken = process.env.META_ACCESS_TOKEN || "";
 
 function loadStoredMetaToken() {
   try {
+    // Never overwrite a freshly configured Railway token with an older
+    // token persisted on the service filesystem.
+    if (runtimeMetaToken) return;
     if (fs.existsSync(TOKEN_STORE_PATH)) {
       const saved = JSON.parse(fs.readFileSync(TOKEN_STORE_PATH, "utf8"));
       if (saved?.access_token) runtimeMetaToken = saved.access_token;
