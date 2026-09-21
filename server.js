@@ -433,7 +433,7 @@ app.get("/facebook/login", (req, res) => {
   });
 
   const loginUrl =
-    "https://www.facebook.com/v26.0/dialog/oauth?" +
+    "https://www.facebook.com/dialog/oauth?" +
     params.toString();
 
   res.redirect(loginUrl);
@@ -468,7 +468,7 @@ app.get("/facebook-config", (req, res) => {
     config_id: config.configId,
     redirect_uri: config.redirectUri,
     login_url:
-      "https://www.facebook.com/v26.0/dialog/oauth?" +
+      "https://www.facebook.com/dialog/oauth?" +
       params.toString()
   });
 });
