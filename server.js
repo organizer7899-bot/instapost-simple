@@ -16,6 +16,10 @@ let runtimeMetaToken = process.env.META_ACCESS_TOKEN || "";
 const FACEBOOK_LAST_POST_PATH = "data/facebook-last-post.json";
 let latestFacebookShareUrl = "";
 
+// Facebook Reel publishing runs in the background so the browser never waits
+// for the long Facebook upload/publish cycle.
+const facebookJobs = new Map();
+
 function loadStoredMetaToken() {
   try {
     // Never overwrite a freshly configured Railway token with an older
@@ -340,9 +344,7 @@ video{
   placeholder="게시글 내용을 입력하세요."
 ></textarea>
 
-<button id="post" type="button" onclick="(async()=>{const b=this,f=document.getElementById('video').files[0],r=document.getElementById('result'),i=document.getElementById('fileInfo');if(!f){r.textContent='❌ 영상을 먼저 선택하세요.';return;}b.textContent='⏳ 서버 전송 중...';i.textContent='📤 '+f.name+' — 서버로 전송 중...';r.textContent='① 게시 버튼 작동 — 영상 업로드 중...';const fd=new FormData();fd.append('video',f);fd.append('caption',document.getElementById('caption').value||'');try{const x=await fetch('/publish',{method:'POST',body:fd});const d=await x.json();if(!x.ok)throw new Error(d.error||'게시 실패');b.textContent='✅ 게시 완료';i.textContent=d.facebook&&d.facebook.ok?'✅ Instagram + Facebook 게시 완료':'✅ Instagram 게시 완료';r.textContent=d.facebook&&d.facebook.ok?'③ Instagram + Facebook 동시 게시 완료':'③ Instagram 게시 완료';}catch(e){b.textContent='❌ 게시 실패';i.textContent='❌ 게시 실패';r.textContent='❌ '+e.message;}})()">
-Instagram + Facebook에 게시
-</button>
+<button id="post" type="button">Instagram + Facebook에 게시</button>
 
 <a id="personalShare" href="/facebook-personal-share" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-top:12px;padding:16px;border:0;border-radius:14px;background:#fff;color:#111;font-size:17px;font-weight:bold;box-sizing:border-box">Facebook에서 개인 피드에 공유하기</a>
 <div id="shareInfo" style="margin-top:10px;color:#bbb;line-height:1.6">Facebook 릴 화면이 열리면 <b>왼쪽 아래 공유 아이콘(↗)</b>을 누른 뒤 <b>피드에 공유</b>를 선택하세요.</div>
@@ -404,7 +406,6 @@ video.onchange = () => {
 };
 
 async function publishVideo() {
-
   const file = video.files[0];
 
   if (!file) {
@@ -412,8 +413,9 @@ async function publishVideo() {
     return;
   }
 
-  // Immediate visual confirmation that the button action fired.
-  result.textContent = "① 게시 버튼 작동 — 영상 업로드 준비 중...";
+  postButton.disabled = true;
+  postButton.textContent = "⏳ 게시 처리 중...";
+  result.textContent = "① 게시 버튼 작동 — 영상 업로드 중...";
   fileInfo.textContent = "📤 " + file.name + " — 서버로 전송 중...";
 
   const form = new FormData();
@@ -431,51 +433,107 @@ async function publishVideo() {
     });
 
     clearTimeout(timer);
-
-    result.textContent = "② 서버 업로드 완료 — Instagram 처리 중...";
-
     const data = await response.json();
 
     if (!response.ok) {
       throw new Error(data.error || "게시 실패");
     }
 
+    result.textContent = "② Instagram 게시 완료 — Facebook 릴을 백그라운드에서 게시 중...";
+    fileInfo.textContent = "✅ Instagram 게시 완료 · Facebook 릴 게시 중...";
+
     const fb = data.facebook;
 
-    if (fb && fb.ok) {
-      facebookShareUrl = fb.shareUrl || "";
-      if (facebookShareUrl) {
-        // Keep the server route. It redirects to the actual Facebook Reel
-        // permalink so Facebook's own Reel page/share controls handle the
-        // personal-feed share instead of creating a text-only URL post.
-        document.getElementById("personalShare").href =
-          "/facebook-personal-share";
-      }
-      document.getElementById("shareInfo").textContent = "Facebook 게시 완료 — 아래 개인 피드 공유 버튼을 눌러주세요.";
-      fileInfo.textContent = "✅ Instagram + Facebook 게시 완료";
-      result.textContent = "③ Instagram + Facebook 동시 게시 완료";
+    if (fb && fb.pending && fb.jobId) {
+      await pollFacebookJob(fb.jobId);
+    } else if (fb && fb.ok) {
+      finishFacebookUi(fb);
     } else if (fb && fb.skipped) {
       fileInfo.textContent = "⚠️ Instagram 게시 완료";
       result.textContent =
         "③ Instagram 게시 완료\n⚠️ Facebook: " +
         (fb.reason || "연결되지 않음");
+      postButton.disabled = false;
+      postButton.textContent = "Instagram + Facebook에 게시";
     } else {
       fileInfo.textContent = "✅ Instagram 게시 완료";
       result.textContent = "③ Instagram 게시 완료";
+      postButton.disabled = false;
+      postButton.textContent = "Instagram + Facebook에 게시";
     }
-
   } catch (error) {
     if (error.name === "AbortError") {
-      fileInfo.textContent = "❌ 게시 시간 초과";
-      result.textContent =
-        "❌ 2분 동안 게시 응답이 없습니다. 서버 처리 상태를 확인해야 합니다.";
+      fileInfo.textContent = "❌ Instagram 게시 응답 시간 초과";
+      result.textContent = "❌ 서버 응답이 2분 동안 없습니다. Railway 로그를 확인하세요.";
     } else {
       fileInfo.textContent = "❌ 게시 실패";
       result.textContent = "❌ " + error.message;
     }
+    postButton.disabled = false;
+    postButton.textContent = "Instagram + Facebook에 게시";
   }
 }
 
+function finishFacebookUi(fb) {
+  facebookShareUrl = fb.shareUrl || "";
+  document.getElementById("shareInfo").textContent =
+    "Facebook 릴 게시 완료 — 아래 버튼을 눌러 개인 피드에 공유하세요.";
+  fileInfo.textContent = "✅ Instagram + Facebook 게시 완료";
+  result.textContent = "③ Instagram + Facebook 동시 게시 완료";
+  postButton.disabled = false;
+  postButton.textContent = "Instagram + Facebook에 게시";
+}
+
+async function pollFacebookJob(jobId) {
+  for (let i = 0; i < 90; i++) {
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    const response = await fetch(
+      "/facebook-job/" + encodeURIComponent(jobId) + "?t=" + Date.now(),
+      { cache: "no-store" }
+    );
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || "Facebook 게시 상태 확인 실패");
+    }
+
+    if (data.status === "done") {
+      finishFacebookUi(data.result || {});
+      return;
+    }
+
+    if (data.status === "skipped") {
+      const fb = data.result || {};
+      fileInfo.textContent = "⚠️ Instagram 게시 완료";
+      result.textContent =
+        "③ Instagram 게시 완료\n⚠️ Facebook: " +
+        (fb.reason || "연결되지 않음");
+      postButton.disabled = false;
+      postButton.textContent = "Instagram + Facebook에 게시";
+      return;
+    }
+
+    if (data.status === "error") {
+      fileInfo.textContent = "⚠️ Instagram 게시 완료 · Facebook 실패";
+      result.textContent = "⚠️ Facebook: " + (data.error || "Facebook 릴 게시 실패");
+      postButton.disabled = false;
+      postButton.textContent = "Instagram + Facebook에 게시";
+      return;
+    }
+
+    result.textContent =
+      "② Instagram 게시 완료 — Facebook 릴 게시 중... (" +
+      (i + 1) + "/90)";
+  }
+
+  fileInfo.textContent = "⚠️ Instagram 게시 완료 · Facebook 처리 중";
+  result.textContent = "⚠️ Facebook 릴 게시가 오래 걸리고 있습니다. Railway에서 계속 처리될 수 있습니다.";
+  postButton.disabled = false;
+  postButton.textContent = "Instagram + Facebook에 게시";
+}
+
+document.getElementById("post").addEventListener("click", publishVideo);
 </script>
 
 </body>
@@ -798,6 +856,58 @@ app.get("/meta-debug", async (req, res) => {
   }
 });
 
+async function createFacebookJob(videoPath, caption) {
+  const jobId =
+    Date.now().toString(36) + "-" +
+    Math.random().toString(36).slice(2, 10);
+
+  facebookJobs.set(jobId, {
+    status: "pending",
+    created_at: new Date().toISOString()
+  });
+
+  (async () => {
+    try {
+      console.log("Facebook background job started:", jobId);
+      const facebookResult = await Promise.race([
+        publishFacebookPageReel(videoPath, caption),
+        new Promise((_, reject) =>
+          setTimeout(
+            () => reject(new Error("Facebook Reel 게시가 3분 이상 걸려 중단되었습니다.")),
+            180000
+          )
+        )
+      ]);
+
+      if (facebookResult?.ok && facebookResult?.shareUrl) {
+        saveLatestFacebookShareUrl(
+          facebookResult.shareUrl,
+          facebookResult.videoId
+        );
+      }
+
+      facebookJobs.set(jobId, {
+        status: facebookResult?.skipped ? "skipped" : "done",
+        result: facebookResult,
+        finished_at: new Date().toISOString()
+      });
+
+      console.log("Facebook background job finished:", jobId);
+    } catch (error) {
+      console.error("Facebook background job failed:", jobId, error);
+      facebookJobs.set(jobId, {
+        status: "error",
+        error: error?.message || "Facebook Reel 게시 실패",
+        finished_at: new Date().toISOString()
+      });
+    } finally {
+      fs.rmSync(videoPath, { force: true });
+    }
+  })();
+
+  return jobId;
+}
+
 async function publishFacebookPageReel(videoPath, description) {
   const config = getFacebookConfig();
   const connection = loadFacebookPageConnection();
@@ -908,6 +1018,26 @@ async function publishFacebookPageReel(videoPath, description) {
     shareUrl
   };
 }
+
+app.get("/facebook-job/:id", (req, res) => {
+  const job = facebookJobs.get(String(req.params.id));
+
+  if (!job) {
+    return res.status(404).json({
+      ok: false,
+      status: "not_found",
+      error: "Facebook 게시 작업을 찾을 수 없습니다."
+    });
+  }
+
+  res.json({
+    ok: true,
+    status: job.status,
+    result: job.result || null,
+    error: job.error || null,
+    finished_at: job.finished_at || null
+  });
+});
 
 app.post(
   "/publish",
@@ -1110,36 +1240,24 @@ app.post(
         });
       }
 
-      console.log("Instagram publish completed. Starting Facebook Reel publish...");
-      const facebookResult = await Promise.race([
-        publishFacebookPageReel(
-          req.file.path,
-          req.body.caption || ""
-        ),
-        new Promise((_, reject) =>
-          setTimeout(
-            () => reject(new Error("Facebook Reel 게시가 45초 이상 걸려 중단되었습니다.")),
-            45000
-          )
-        )
-      ]);
+      console.log("Instagram publish completed. Starting Facebook Reel background job...");
+      const facebookJobId = await createFacebookJob(
+        req.file.path,
+        req.body.caption || ""
+      );
 
-      fs.rmSync(req.file.path, { force: true });
-
-      if (facebookResult?.ok && facebookResult?.shareUrl) {
-        saveLatestFacebookShareUrl(
-          facebookResult.shareUrl,
-          facebookResult.videoId
-        );
-      }
-
+      // Instagram is already published. Return immediately; Facebook continues
+      // in the background and the browser polls /facebook-job/:id.
       res.json({
         ok: true,
         instagram: {
           ok: true,
           mediaId: published.id
         },
-        facebook: facebookResult
+        facebook: {
+          pending: true,
+          jobId: facebookJobId
+        }
       });
 
     } catch(error) {
