@@ -428,7 +428,7 @@ app.get("/facebook/login", (req, res) => {
     state,
     config_id: config.configId,
     response_type: "code",
-    override_default_response_type: "true",
+    override_default_response_type: "true"
   });
 
   const loginUrl =
@@ -458,8 +458,7 @@ app.get("/facebook-config", (req, res) => {
     state,
     config_id: config.configId,
     response_type: "code",
-    override_default_response_type: "true",
-    auth_type: "rerequest"
+    override_default_response_type: "true"
   });
 
   res.json({
