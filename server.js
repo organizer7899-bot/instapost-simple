@@ -1016,7 +1016,12 @@ async function publishFacebookPageReel(videoPath, description) {
     );
     const permalinkData = await permalinkResponse.json();
     if (permalinkResponse.ok && permalinkData?.permalink_url) {
-      shareUrl = String(permalinkData.permalink_url);
+      const rawPermalink = String(permalinkData.permalink_url).trim();
+      // Meta may return a relative Reel permalink such as /reel/123.../.
+      // Never redirect the browser to that path on our Railway app.
+      shareUrl = rawPermalink.startsWith("http://") || rawPermalink.startsWith("https://")
+        ? rawPermalink
+        : "https://www.facebook.com" + (rawPermalink.startsWith("/") ? rawPermalink : "/" + rawPermalink);
     }
   } catch (error) {
     console.error("Facebook permalink lookup failed:", error);
