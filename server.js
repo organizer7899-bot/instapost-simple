@@ -50,9 +50,9 @@ function getFacebookConfig() {
     appSecret: process.env.FB_APP_SECRET || process.env.META_APP_SECRET || "",
     redirectUri:
       process.env.FB_REDIRECT_URI ||
-      ((process.env.RAILWAY_PUBLIC_DOMAIN
-        ? "https://" + process.env.RAILWAY_PUBLIC_DOMAIN
-        : process.env.PUBLIC_BASE_URL || "") + "/facebook/callback"),
+      (process.env.PUBLIC_BASE_URL
+        ? process.env.PUBLIC_BASE_URL.replace(/\/$/, "") + "/facebook/callback"
+        : "https://instapost-simple-production.up.railway.app/facebook/callback"),
     pageId: process.env.FB_PAGE_ID || process.env.META_PAGE_ID || "",
     configId: process.env.FB_CONFIG_ID || ""
   };
