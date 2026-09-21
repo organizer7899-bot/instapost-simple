@@ -12,6 +12,7 @@ const TOKEN_STORE_PATH =
   process.env.META_TOKEN_STORE_PATH || "data/meta-token.json";
 
 let runtimeMetaToken = process.env.META_ACCESS_TOKEN || "";
+let latestFacebookShareUrl = "";
 
 function loadStoredMetaToken() {
   try {
@@ -307,7 +308,7 @@ video{
 Instagram + Facebook에 게시
 </button>
 
-<button id="personalShare" type="button" onclick="sharePersonalFeed()">Facebook 개인 피드 공유</button>
+<a id="personalShare" href="/facebook-personal-share" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-top:12px;padding:16px;border:0;border-radius:14px;background:#fff;color:#111;font-size:17px;font-weight:bold;box-sizing:border-box">Facebook 개인 피드 공유</a>
 <div id="shareInfo" style="margin-top:10px;color:#bbb"></div>
 
 <div id="result"></div>
@@ -325,38 +326,6 @@ const fileInfo = document.getElementById("fileInfo");
 const postButton = document.getElementById("post");
 let facebookShareUrl = "";
 
-function sharePersonalFeed() {
-  const button = document.getElementById("personalShare");
-  const info = document.getElementById("shareInfo");
-
-  button.textContent = "⏳ 공유 준비 중...";
-  info.textContent = "① 개인 피드 공유 버튼 작동 확인";
-
-  if (!facebookShareUrl) {
-    button.textContent = "Facebook 개인 피드 공유";
-    info.textContent = "⚠️ 먼저 Instagram + Facebook에 게시해 주세요. 게시가 완료되면 이 버튼으로 개인 피드에 공유할 수 있습니다.";
-    return;
-  }
-
-  const shareUrl =
-    "https://www.facebook.com/sharer/sharer.php?u=" +
-    encodeURIComponent(facebookShareUrl);
-
-  info.textContent = "② Facebook 개인 피드 공유창을 여는 중...";
-  const popup = window.open(shareUrl, "_blank");
-
-  if (!popup) {
-    button.textContent = "Facebook 개인 피드 공유";
-    info.textContent = "⚠️ Facebook 공유창이 차단되었습니다. 브라우저의 팝업 차단을 해제해 주세요.";
-    return;
-  }
-
-  button.textContent = "✅ 공유창 열림";
-  info.textContent = "③ Facebook 개인 피드 공유창이 열렸습니다.";
-  setTimeout(() => {
-    button.textContent = "Facebook 개인 피드 공유";
-  }, 2500);
-}
 
 async function checkFacebookStatus() {
   try {
@@ -439,6 +408,7 @@ async function publishVideo() {
 
     if (fb && fb.ok) {
       facebookShareUrl = fb.shareUrl || "";
+      latestFacebookShareUrl = facebookShareUrl;
       document.getElementById("shareInfo").textContent = "Facebook 게시 완료 — 아래 개인 피드 공유 버튼을 눌러주세요.";
       fileInfo.textContent = "✅ Instagram + Facebook 게시 완료";
       result.textContent = "③ Instagram + Facebook 동시 게시 완료";
@@ -728,6 +698,18 @@ app.get("/facebook/callback", async (req, res) => {
       "<p><a href='/'>InstaPost Simple로 돌아가기</a></p>"
     );
   }
+});
+
+app.get("/facebook-personal-share", (req, res) => {
+  if (!latestFacebookShareUrl) {
+    return res.status(400).send(
+      "<h2>Facebook 개인 피드 공유</h2><p>먼저 Instagram + Facebook에 게시해 주세요.</p><p><a href='/'>돌아가기</a></p>"
+    );
+  }
+  const shareUrl =
+    "https://www.facebook.com/sharer/sharer.php?u=" +
+    encodeURIComponent(latestFacebookShareUrl);
+  res.redirect(shareUrl);
 });
 
 app.get("/facebook-status", (req, res) => {
