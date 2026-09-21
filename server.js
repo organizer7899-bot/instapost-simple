@@ -53,7 +53,8 @@ function getFacebookConfig() {
       ((process.env.RAILWAY_PUBLIC_DOMAIN
         ? "https://" + process.env.RAILWAY_PUBLIC_DOMAIN
         : process.env.PUBLIC_BASE_URL || "") + "/facebook/callback"),
-    pageId: process.env.FB_PAGE_ID || process.env.META_PAGE_ID || ""
+    pageId: process.env.FB_PAGE_ID || process.env.META_PAGE_ID || "",
+    configId: process.env.FB_CONFIG_ID || ""
   };
 }
 
@@ -355,9 +356,9 @@ document.getElementById("post").onclick = async () => {
 app.get("/facebook/login", (req, res) => {
   const config = getFacebookConfig();
 
-  if (!config.appId) {
+  if (!config.appId || !config.configId) {
     return res.status(500).send(
-      "Facebook 연결을 위해 Railway Variables에 FB_APP_ID를 설정하세요."
+      "Facebook Login for Business 설정이 필요합니다. Railway Variables에 FB_APP_ID와 FB_CONFIG_ID를 설정하세요."
     );
   }
 
@@ -370,7 +371,9 @@ app.get("/facebook/login", (req, res) => {
     client_id: config.appId,
     redirect_uri: config.redirectUri,
     state,
-    scope: "pages_show_list,pages_read_engagement,pages_manage_posts"
+    config_id: config.configId,
+    response_type: "code",
+    override_default_response_type: "true"
   });
 
   res.redirect(
