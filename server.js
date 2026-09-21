@@ -387,10 +387,10 @@ button{padding:16px 24px;border:0;border-radius:12px;font-size:18px;font-weight:
 <script>
 window.fbAsyncInit = function() {
   FB.init({
-    appId: \${JSON.stringify(config.appId)},
+    appId: ${JSON.stringify(config.appId)},
     cookie: true,
     xfbml: true,
-    version: \${JSON.stringify(process.env.META_API_VERSION || "v26.0")}
+    version: ${JSON.stringify(process.env.META_API_VERSION || "v26.0")}
   });
 };
 
@@ -402,15 +402,15 @@ document.getElementById("login").onclick = function() {
       status.textContent = "인증 코드를 받았습니다. 연결을 완료하는 중...";
       const code = encodeURIComponent(response.authResponse.code);
       window.location.href =
-        \${JSON.stringify(config.redirectUri)} +
+        ${JSON.stringify(config.redirectUri)} +
         "?code=" + code +
-        "&state=" + encodeURIComponent(\${JSON.stringify(state)});
+        "&state=" + encodeURIComponent(${JSON.stringify(state)});
     } else {
       status.textContent =
         "Facebook 인증이 완료되지 않았습니다. Meta 로그인 화면의 오류 내용을 확인하세요.";
     }
   }, {
-    config_id: \${JSON.stringify(config.configId)},
+    config_id: ${JSON.stringify(config.configId)},
     response_type: "code",
     override_default_response_type: true,
     auth_type: "rerequest"
@@ -426,7 +426,7 @@ document.getElementById("login").onclick = function() {
 }(document,"script","facebook-jssdk"));
 </script>
 </body>
-</html>\`);
+</html>`);
 });
 
 app.get("/facebook-config", (req, res) => {
