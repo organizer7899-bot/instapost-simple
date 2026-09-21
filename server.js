@@ -325,12 +325,42 @@ const fileInfo = document.getElementById("fileInfo");
 const postButton = document.getElementById("post");
 let facebookShareUrl = "";
 
-document.getElementById("personalShare").onclick = function () {
+document.getElementById("personalShare").onclick = async function () {
+  const button = this;
+  const info = document.getElementById("shareInfo");
+
+  // 게시 버튼과 같은 방식으로 즉시 클릭 작동을 표시합니다.
+  button.textContent = "⏳ 공유 준비 중...";
+  info.textContent = "① 개인 피드 공유 버튼 작동";
+
   if (!facebookShareUrl) {
-    document.getElementById("shareInfo").textContent = "먼저 Instagram + Facebook에 게시하세요. 게시 완료 후 개인 피드 공유가 가능합니다.";
+    button.textContent = "Facebook 개인 피드 공유";
+    info.textContent = "⚠️ 먼저 Instagram + Facebook에 게시하세요. 게시 완료 후 개인 피드 공유가 가능합니다.";
     return;
   }
-  window.open("https://www.facebook.com/sharer/sharer.php?u=" + encodeURIComponent(facebookShareUrl), "_blank");
+
+  try {
+    const shareUrl =
+      "https://www.facebook.com/sharer/sharer.php?u=" +
+      encodeURIComponent(facebookShareUrl);
+
+    const popup = window.open(shareUrl, "_blank", "width=700,height=700");
+
+    if (!popup) {
+      button.textContent = "Facebook 개인 피드 공유";
+      info.textContent = "⚠️ 공유창이 차단되었습니다. 브라우저에서 팝업을 허용해 주세요.";
+      return;
+    }
+
+    button.textContent = "✅ 공유창 열림";
+    info.textContent = "② Facebook 개인 피드 공유창이 열렸습니다. 개인 피드를 선택해 게시하세요.";
+    setTimeout(() => {
+      button.textContent = "Facebook 개인 피드 공유";
+    }, 2500);
+  } catch (error) {
+    button.textContent = "Facebook 개인 피드 공유";
+    info.textContent = "❌ 공유창을 열지 못했습니다: " + error.message;
+  }
 };
 
 async function checkFacebookStatus() {
