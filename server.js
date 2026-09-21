@@ -74,20 +74,30 @@ function saveFacebookPageToken(pageToken, pageId) {
   }
 }
 
-function loadFacebookPageToken() {
+function loadFacebookPageConnection() {
   try {
     if (process.env.FB_PAGE_ACCESS_TOKEN) {
-      return process.env.FB_PAGE_ACCESS_TOKEN;
+      return {
+        access_token: process.env.FB_PAGE_ACCESS_TOKEN,
+        page_id: process.env.FB_PAGE_ID || process.env.META_PAGE_ID || ""
+      };
     }
     const path = "data/facebook-page-token.json";
     if (fs.existsSync(path)) {
       const saved = JSON.parse(fs.readFileSync(path, "utf8"));
-      return saved?.access_token || "";
+      return {
+        access_token: saved?.access_token || "",
+        page_id: saved?.page_id || ""
+      };
     }
   } catch (error) {
-    console.error("Facebook Page token load failed:", error);
+    console.error("Facebook Page connection load failed:", error);
   }
-  return "";
+  return { access_token: "", page_id: "" };
+}
+
+function loadFacebookPageToken() {
+  return loadFacebookPageConnection().access_token;
 }
 
 async function ensureMetaToken() {
@@ -334,8 +344,16 @@ document.getElementById("post").onclick = async () => {
       throw new Error(data.error || "게시 실패");
     }
 
-    result.textContent =
-      "✅ Instagram 게시 완료";
+    const fb = data.facebook;
+    if (fb && fb.skipped) {
+      result.textContent =
+        "✅ Instagram 게시 완료\n⚠️ Facebook: " + (fb.reason || "연결되지 않음");
+    } else if (fb && fb.ok) {
+      result.textContent =
+        "✅ Instagram + Facebook 동시 게시 완료";
+    } else {
+      result.textContent = "✅ Instagram 게시 완료";
+    }
 
   } catch(error) {
 
@@ -511,12 +529,12 @@ app.get("/facebook/callback", async (req, res) => {
 });
 
 app.get("/facebook-status", (req, res) => {
-  const token = loadFacebookPageToken();
+  const connection = loadFacebookPageConnection();
   const config = getFacebookConfig();
 
   res.json({
-    connected: !!token,
-    page_id: config.pageId || null,
+    connected: !!connection.access_token,
+    page_id: config.pageId || connection.page_id || null,
     note: "토큰 값은 표시하지 않습니다."
   });
 });
@@ -550,8 +568,9 @@ app.get("/meta-debug", async (req, res) => {
 
 async function publishFacebookPageReel(videoPath, description) {
   const config = getFacebookConfig();
-  const pageId = config.pageId;
-  const pageToken = loadFacebookPageToken();
+  const connection = loadFacebookPageConnection();
+  const pageId = config.pageId || connection.page_id;
+  const pageToken = connection.access_token;
 
   if (!pageId || !pageToken) {
     return {
