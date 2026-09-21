@@ -206,13 +206,16 @@ app.get("/health", (req, res) => {
 });
 
 app.get("/", (req, res) => {
+  res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.set("Pragma", "no-cache");
+  res.set("Expires", "0");
   res.send(`
 <!DOCTYPE html>
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>InstaPost Simple Version 03</title>
+<title>InstaPost Simple Version 04</title>
 <style>
 body{
   margin:0;
@@ -272,7 +275,7 @@ video{
 <body>
 <main>
 
-<h1>InstaPost Simple Version 03</h1>
+<h1>InstaPost Simple Version 04</h1>
 <p>영상 선택 → 게시글 입력 → Instagram + Facebook 동시 게시</p>
 
 <div class="card">
@@ -300,7 +303,7 @@ video{
   placeholder="게시글 내용을 입력하세요."
 ></textarea>
 
-<button id="post" type="button" onclick="publishVideo()">
+<button id="post" type="button" onclick="this.textContent='⏳ 클릭 확인됨'; this.style.background='#666'; publishVideo();">
 Instagram + Facebook에 게시
 </button>
 
