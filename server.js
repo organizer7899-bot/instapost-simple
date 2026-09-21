@@ -344,7 +344,7 @@ video{
 Instagram + Facebook에 게시
 </button>
 
-<a id="personalShare" href="/facebook-personal-share" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-top:12px;padding:16px;border:0;border-radius:14px;background:#fff;color:#111;font-size:17px;font-weight:bold;box-sizing:border-box">Facebook 개인 피드 공유</a>
+<a id="personalShare" href="/facebook-personal-share" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-top:12px;padding:16px;border:0;border-radius:14px;background:#fff;color:#111;font-size:17px;font-weight:bold;box-sizing:border-box">Facebook 릴 → 개인 피드 공유</a>
 <div id="shareInfo" style="margin-top:10px;color:#bbb"></div>
 
 <div id="result"></div>
