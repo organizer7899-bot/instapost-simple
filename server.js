@@ -348,6 +348,20 @@ app.post(
 
       const token = await ensureMetaToken();
 
+      const version =
+        process.env.META_API_VERSION || "v26.0";
+
+      const publicUrl =
+        process.env.PUBLIC_BASE_URL ||
+        (process.env.RAILWAY_PUBLIC_DOMAIN
+          ? "https://" + process.env.RAILWAY_PUBLIC_DOMAIN
+          : "");
+
+      const videoUrl =
+        publicUrl.replace(/\/$/, "") +
+        "/uploads/" +
+        req.file.filename;
+
       let igUserId = process.env.IG_USER_ID || "";
 
       if (!igUserId) {
