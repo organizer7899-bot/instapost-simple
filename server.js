@@ -145,7 +145,7 @@ app.get("/", (req, res) => {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>InstaPost Simple Version 02</title>
+<title>InstaPost Simple Version 03</title>
 <style>
 body{
   margin:0;
@@ -203,8 +203,8 @@ video{
 <body>
 <main>
 
-<h1>InstaPost Simple Version 02</h1>
-<p>영상 선택 → 게시글 입력 → Instagram 게시</p>
+<h1>InstaPost Simple Version 03</h1>
+<p>영상 선택 → 게시글 입력 → Instagram + Facebook 동시 게시</p>
 
 <div class="card">
 
@@ -226,7 +226,7 @@ video{
 ></textarea>
 
 <button id="post">
-Instagram에 게시
+Instagram + Facebook에 게시
 </button>
 
 <div id="result"></div>
@@ -332,6 +332,94 @@ app.get("/meta-debug", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+async function publishFacebookPageReel(videoPath, description) {
+  const pageId = process.env.FB_PAGE_ID || process.env.META_PAGE_ID || "";
+  const pageToken = process.env.FB_PAGE_ACCESS_TOKEN || "";
+
+  if (!pageId || !pageToken) {
+    return {
+      skipped: true,
+      reason: "FB_PAGE_ID 또는 FB_PAGE_ACCESS_TOKEN이 설정되지 않았습니다."
+    };
+  }
+
+  const version = process.env.META_API_VERSION || "v26.0";
+  const stat = fs.statSync(videoPath);
+
+  // 1) Start resumable Facebook Page Reel upload.
+  const startBody = new URLSearchParams();
+  startBody.append("upload_phase", "start");
+  startBody.append("access_token", pageToken);
+
+  const startResponse = await fetch(
+    "https://graph.facebook.com/" + version + "/" + pageId + "/video_reels",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: startBody
+    }
+  );
+  const started = await startResponse.json();
+
+  if (!startResponse.ok || !started.video_id || !started.upload_url) {
+    throw new Error(
+      started?.error?.message || "Facebook Reel 업로드 시작에 실패했습니다."
+    );
+  }
+
+  // 2) Upload the video bytes to Facebook's resumable upload URL.
+  const fileBuffer = fs.readFileSync(videoPath);
+  const uploadResponse = await fetch(started.upload_url, {
+    method: "POST",
+    headers: {
+      Authorization: "OAuth " + pageToken,
+      offset: "0",
+      file_size: String(stat.size),
+      "Content-Type": "application/octet-stream"
+    },
+    body: fileBuffer
+  });
+  const uploadedText = await uploadResponse.text();
+  let uploaded = {};
+  try { uploaded = JSON.parse(uploadedText); } catch {}
+
+  if (!uploadResponse.ok || uploaded.success === false) {
+    throw new Error(
+      uploaded?.error?.message || uploadedText || "Facebook Reel 영상 업로드에 실패했습니다."
+    );
+  }
+
+  // 3) Finish and publish the Reel to the Facebook Page.
+  const finishBody = new URLSearchParams();
+  finishBody.append("upload_phase", "finish");
+  finishBody.append("video_id", started.video_id);
+  finishBody.append("video_state", "PUBLISHED");
+  finishBody.append("description", description || "");
+  finishBody.append("access_token", pageToken);
+
+  const finishResponse = await fetch(
+    "https://graph.facebook.com/" + version + "/" + pageId + "/video_reels",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: finishBody
+    }
+  );
+  const finished = await finishResponse.json();
+
+  if (!finishResponse.ok || finished.success === false) {
+    throw new Error(
+      finished?.error?.message || "Facebook Reel 게시에 실패했습니다."
+    );
+  }
+
+  return {
+    skipped: false,
+    ok: true,
+    videoId: started.video_id
+  };
+}
 
 app.post(
   "/publish",
@@ -532,11 +620,20 @@ app.post(
         });
       }
 
+      const facebookResult = await publishFacebookPageReel(
+        req.file.path,
+        req.body.caption || ""
+      );
+
       fs.rmSync(req.file.path, { force: true });
 
       res.json({
-        ok:true,
-        mediaId:published.id
+        ok: true,
+        instagram: {
+          ok: true,
+          mediaId: published.id
+        },
+        facebook: facebookResult
       });
 
     } catch(error) {
