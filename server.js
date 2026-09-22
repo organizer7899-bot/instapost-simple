@@ -471,6 +471,19 @@ async function publishVideo() {
 
 function finishFacebookUi(fb) {
   facebookShareUrl = fb.shareUrl || "";
+  const shareButton = document.getElementById("personalShare");
+
+  // Bind the exact Reel created by THIS publish job to the share button.
+  // Never leave the button pointing at the generic endpoint after a new post.
+  if (fb && fb.videoId && shareButton) {
+    shareButton.href =
+      "/facebook-personal-share?video_id=" +
+      encodeURIComponent(String(fb.videoId));
+    shareButton.textContent = "Facebook 릴 → 개인 피드 공유";
+    shareButton.style.pointerEvents = "auto";
+    shareButton.style.opacity = "1";
+  }
+
   document.getElementById("shareInfo").textContent =
     "Facebook 릴 게시 완료 — 아래 버튼을 눌러 개인 피드에 공유하세요.";
   fileInfo.textContent = "✅ Instagram + Facebook 게시 완료";
