@@ -72,7 +72,7 @@ function getFacebookConfig() {
         ? process.env.PUBLIC_BASE_URL.replace(/\/$/, "") + "/facebook/callback"
         : "https://instapost-simple-production.up.railway.app/facebook/callback"),
     pageId: process.env.FB_PAGE_ID || process.env.META_PAGE_ID || "",
-    configId: "1070705949020606"
+    configId: process.env.FB_CONFIG_ID || "1070705949020606"
   };
 }
 
