@@ -315,7 +315,7 @@ video{
 <p>영상 선택 → 게시글 입력 → Instagram + Facebook 동시 게시</p>
 
 <div class="card">
-<button id="fbConnect" type="button" onclick="window.location.href='/facebook/login'">Facebook 연결</button>
+<a id="fbConnect" href="/facebook/login" style="display:block;width:100%;box-sizing:border-box;margin-top:12px;padding:16px;border-radius:14px;background:#fff;color:#111;font-size:17px;font-weight:bold;text-align:center;text-decoration:none;">Facebook 연결</a>
 <div id="fbStatus">Facebook 연결 상태 확인 중...</div>
 </div>
 
@@ -377,10 +377,6 @@ async function checkFacebookStatus() {
     fbStatus.textContent = "Facebook 연결 상태 확인 실패";
   }
 }
-
-document.getElementById("fbConnect").onclick = () => {
-  window.location.href = "/facebook/login";
-};
 
 checkFacebookStatus();
 
