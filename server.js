@@ -390,14 +390,6 @@ async function checkFacebookStatus() {
 
 checkFacebookStatus();
 
-const fbConnect = document.getElementById("fbConnect");
-fbConnect.addEventListener("click", () => {
-  fbConnect.style.background = "#555";
-  fbConnect.style.color = "#fff";
-  fbConnect.textContent = "Facebook 연결 중...";
-  window.location.assign("/facebook/login");
-});
-
 video.onchange = () => {
 
   const file = video.files[0];
