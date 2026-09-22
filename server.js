@@ -293,7 +293,17 @@ button{
   color:#111;
   font-size:17px;
   font-weight:bold;
-
+  cursor:pointer;
+  transition:background .12s ease,color .12s ease,transform .08s ease;
+}
+button:active{
+  background:#555;
+  color:#fff;
+  transform:scale(.98);
+}
+#fbConnect:focus-visible{
+  outline:3px solid #4da3ff;
+  outline-offset:2px;
 }
 
 video{
@@ -315,7 +325,7 @@ video{
 <p>영상 선택 → 게시글 입력 → Instagram + Facebook 동시 게시</p>
 
 <div class="card">
-<form action="/facebook/login" method="get" style="margin:0;"><button id="fbConnect" type="submit">Facebook 연결</button></form>
+<form id="fbForm" action="/facebook/login" method="get" style="margin:0;"><button id="fbConnect" type="submit">Facebook 연결</button></form>
 <div id="fbStatus">Facebook 연결 상태 확인 중...</div>
 </div>
 
@@ -379,6 +389,14 @@ async function checkFacebookStatus() {
 }
 
 checkFacebookStatus();
+
+const fbForm = document.getElementById("fbForm");
+const fbConnect = document.getElementById("fbConnect");
+fbForm.addEventListener("submit", () => {
+  fbConnect.style.background = "#555";
+  fbConnect.style.color = "#fff";
+  fbConnect.textContent = "Facebook 연결 중...";
+});
 
 video.onchange = () => {
 
