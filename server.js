@@ -325,7 +325,7 @@ video{
 <p>영상 선택 → 게시글 입력 → Instagram + Facebook 동시 게시</p>
 
 <div class="card">
-<form id="fbForm" action="/facebook/login" method="get" style="margin:0;"><button id="fbConnect" type="submit">Facebook 연결</button></form>
+<button id="fbConnect" type="button">Facebook 연결</button>
 <div id="fbStatus">Facebook 연결 상태 확인 중...</div>
 </div>
 
@@ -390,12 +390,12 @@ async function checkFacebookStatus() {
 
 checkFacebookStatus();
 
-const fbForm = document.getElementById("fbForm");
 const fbConnect = document.getElementById("fbConnect");
-fbForm.addEventListener("submit", () => {
+fbConnect.addEventListener("click", () => {
   fbConnect.style.background = "#555";
   fbConnect.style.color = "#fff";
   fbConnect.textContent = "Facebook 연결 중...";
+  window.location.assign("/facebook/login");
 });
 
 video.onchange = () => {
