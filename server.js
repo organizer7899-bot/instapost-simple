@@ -981,13 +981,14 @@ async function publishFacebookPageReel(videoPath, description) {
   startBody.append("upload_phase", "start");
   startBody.append("access_token", pageToken);
 
-  const startResponse = await fetch(
+  const startResponse = await fetchWithTimeout(
     "https://graph.facebook.com/" + version + "/" + pageId + "/video_reels",
     {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: startBody
-    }
+    },
+    30000
   );
   const started = await startResponse.json();
 
@@ -999,7 +1000,7 @@ async function publishFacebookPageReel(videoPath, description) {
 
   // 2) Upload the video bytes to Facebook's resumable upload URL.
   const fileBuffer = fs.readFileSync(videoPath);
-  const uploadResponse = await fetch(started.upload_url, {
+  const uploadResponse = await fetchWithTimeout(started.upload_url, {
     method: "POST",
     headers: {
       Authorization: "OAuth " + pageToken,
@@ -1008,7 +1009,7 @@ async function publishFacebookPageReel(videoPath, description) {
       "Content-Type": "application/octet-stream"
     },
     body: fileBuffer
-  });
+  }, 120000);
   const uploadedText = await uploadResponse.text();
   let uploaded = {};
   try { uploaded = JSON.parse(uploadedText); } catch {}
@@ -1027,13 +1028,14 @@ async function publishFacebookPageReel(videoPath, description) {
   finishBody.append("description", description || "");
   finishBody.append("access_token", pageToken);
 
-  const finishResponse = await fetch(
+  const finishResponse = await fetchWithTimeout(
     "https://graph.facebook.com/" + version + "/" + pageId + "/video_reels",
     {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: finishBody
-    }
+    },
+    30000
   );
   const finished = await finishResponse.json();
 
@@ -1047,14 +1049,14 @@ async function publishFacebookPageReel(videoPath, description) {
     "https://www.facebook.com/" + pageId + "/videos/" + started.video_id;
 
   try {
-    const permalinkResponse = await fetch(
+    const permalinkResponse = await fetchWithTimeout(
       "https://graph.facebook.com/" +
         version +
         "/" +
         encodeURIComponent(started.video_id) +
         "?fields=permalink_url&access_token=" +
         encodeURIComponent(pageToken)
-    );
+    , 20000);
     const permalinkData = await permalinkResponse.json();
     if (permalinkResponse.ok && permalinkData?.permalink_url) {
       const rawPermalink = String(permalinkData.permalink_url).trim();
