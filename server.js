@@ -1387,7 +1387,7 @@ app.get("/facebook-login-debug", (req, res) => {
     "<style>" +
     "body{font-family:Arial,sans-serif;background:#111;color:#fff;padding:24px;line-height:1.6}" +
     ".box{max-width:680px;margin:auto;background:#1d1d1d;padding:22px;border-radius:18px}" +
-    "a{display:block;margin-top:18px;padding:16px;background:#fff;color:#111;text-decoration:none;text-align:center;border-radius:14px;font-weight:bold}" +
+    "a{display:block;margin-top:18px;padding:16px;background:#fff;color:#111;text-decoration:none;text-align:center;border-radius:14px;font-weight:bold}button{width:100%;margin-top:18px;padding:16px;background:#fff;color:#111;border:0;border-radius:14px;font-size:17px;font-weight:bold}" +
     "textarea{width:100%;box-sizing:border-box;margin-top:16px;height:170px;background:#0b0b0b;color:#bbb;border:1px solid #444;border-radius:12px;padding:12px}" +
     ".ok{color:#8ff0a4}" +
     "</style></head><body><div class='box'>" +
@@ -1396,7 +1396,15 @@ app.get("/facebook-login-debug", (req, res) => {
     "<p>App ID: " + (config.appId ? "설정됨" : "없음") + "</p>" +
     "<p>Config ID: " + escapeHtml(config.configId) + "</p>" +
     "<p>Callback: " + escapeHtml(config.redirectUri) + "</p>" +
-    "<a href='" + escapeHtml(loginUrl) + "'>Meta 로그인 열기</a>" +
+    "<form action='https://www.facebook.com/dialog/oauth' method='GET' target='_self'>" +
+    "<input type='hidden' name='client_id' value='" + escapeHtml(config.appId) + "'>" +
+    "<input type='hidden' name='redirect_uri' value='" + escapeHtml(config.redirectUri) + "'>" +
+    "<input type='hidden' name='state' value='" + escapeHtml(state) + "'>" +
+    "<input type='hidden' name='config_id' value='" + escapeHtml(config.configId) + "'>" +
+    "<input type='hidden' name='response_type' value='code'>" +
+    "<input type='hidden' name='override_default_response_type' value='true'>" +
+    "<button type='submit'>Meta 로그인 열기</button>" +
+    "</form>" +
     "<textarea readonly>" + escapeHtml(loginUrl) + "</textarea>" +
     "<p>위의 <b>Meta 로그인 열기</b>를 직접 눌러 보세요.</p>" +
     "<p>정상적으로 Facebook 화면이 열리면, 기존 버튼의 자동 이동 단계만 문제입니다.</p>" +
