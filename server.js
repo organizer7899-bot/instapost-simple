@@ -807,8 +807,8 @@ app.get("/facebook/callback", async (req, res) => {
 });
 
 app.get("/facebook-personal-share", (req, res) => {
-  loadLatestFacebookShareUrl();
-
+  // Do not reload persistent data here. The current in-memory values are
+  // intentionally set only when a Facebook Reel is successfully published.
   if (!latestFacebookShareUrl) {
     return res.status(400).send(
       "<!doctype html><html lang='ko'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>" +
