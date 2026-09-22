@@ -119,21 +119,11 @@ function loadFacebookPageToken() {
 }
 
 function loadLatestFacebookShareUrl() {
-  try {
-    if (fs.existsSync(FACEBOOK_LAST_POST_PATH)) {
-      const saved = JSON.parse(
-        fs.readFileSync(FACEBOOK_LAST_POST_PATH, "utf8")
-      );
-      if (saved?.share_url) {
-        latestFacebookShareUrl = String(saved.share_url);
-      }
-      if (saved?.video_id) {
-        latestFacebookVideoId = String(saved.video_id);
-      }
-    }
-  } catch (error) {
-    console.error("Saved Facebook share URL load failed:", error);
-  }
+  // Do not restore an old Facebook Reel after a Railway restart/deploy.
+  // The personal-feed button must always refer to a Reel created by the
+  // current running instance, preventing stale /reel/... posts from being shared.
+  latestFacebookShareUrl = "";
+  latestFacebookVideoId = "";
 }
 
 function saveLatestFacebookShareUrl(shareUrl, videoId) {
