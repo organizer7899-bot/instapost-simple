@@ -1341,6 +1341,29 @@ app.post(
   }
 );
 
+app.get("/facebook-debug", (req, res) => {
+  const config = getFacebookConfig();
+  const state = Buffer.from(JSON.stringify({ t: Date.now() }), "utf8").toString("base64url");
+  const params = new URLSearchParams({
+    client_id: config.appId,
+    redirect_uri: config.redirectUri,
+    state,
+    config_id: config.configId,
+    response_type: "code",
+    override_default_response_type: "true"
+  });
+  const loginUrl = "https://www.facebook.com/dialog/oauth?" + params.toString();
+  res.json({
+    ok: true,
+    app_id_present: !!config.appId,
+    app_secret_present: !!config.appSecret,
+    config_id: config.configId,
+    redirect_uri: config.redirectUri,
+    public_base_url: process.env.PUBLIC_BASE_URL ? process.env.PUBLIC_BASE_URL : null,
+    login_url: loginUrl,
+    note: "Secret/token values are never returned."
+  });
+});
 app.listen(
   PORT,
   () => console.log(
