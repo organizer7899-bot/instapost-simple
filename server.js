@@ -1415,7 +1415,7 @@ app.get("/facebook-debug", (req, res) => {
     response_type: "code",
     override_default_response_type: "true"
   });
-  const loginUrl = "https://www.facebook.com/dialog/oauth?" + params.toString();
+  const loginUrl = "https://www.facebook.com/v26.0/dialog/oauth?" + params.toString();
   res.json({
     ok: true,
     app_id_present: !!config.appId,
