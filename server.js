@@ -1341,6 +1341,69 @@ app.post(
   }
 );
 
+
+app.get("/facebook-login-debug", (req, res) => {
+  const config = getFacebookConfig();
+
+  if (!config.appId || !config.configId) {
+    return res.status(500).send(
+      "<h2>Facebook 로그인 설정이 없습니다.</h2>" +
+      "<p>FB_APP_ID 또는 FB_CONFIG_ID를 확인하세요.</p>"
+    );
+  }
+
+  const state = Buffer.from(
+    JSON.stringify({ t: Date.now() }),
+    "utf8"
+  ).toString("base64url");
+
+  const params = new URLSearchParams({
+    client_id: config.appId,
+    redirect_uri: config.redirectUri,
+    state,
+    config_id: config.configId,
+    response_type: "code",
+    override_default_response_type: "true"
+  });
+
+  const loginUrl =
+    "https://www.facebook.com/dialog/oauth?" +
+    params.toString();
+
+  const escapeHtml = (value) =>
+    String(value).replace(/[&<>"']/g, ch => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;"
+    }[ch]));
+
+  res.send(
+    "<!doctype html><html lang='ko'><head>" +
+    "<meta charset='utf-8'>" +
+    "<meta name='viewport' content='width=device-width,initial-scale=1'>" +
+    "<title>Facebook 로그인 진단</title>" +
+    "<style>" +
+    "body{font-family:Arial,sans-serif;background:#111;color:#fff;padding:24px;line-height:1.6}" +
+    ".box{max-width:680px;margin:auto;background:#1d1d1d;padding:22px;border-radius:18px}" +
+    "a{display:block;margin-top:18px;padding:16px;background:#fff;color:#111;text-decoration:none;text-align:center;border-radius:14px;font-weight:bold}" +
+    "textarea{width:100%;box-sizing:border-box;margin-top:16px;height:170px;background:#0b0b0b;color:#bbb;border:1px solid #444;border-radius:12px;padding:12px}" +
+    ".ok{color:#8ff0a4}" +
+    "</style></head><body><div class='box'>" +
+    "<h2>Facebook 로그인 진단</h2>" +
+    "<p class='ok'>✅ Version06에서 Meta 로그인 주소 생성 완료</p>" +
+    "<p>App ID: " + (config.appId ? "설정됨" : "없음") + "</p>" +
+    "<p>Config ID: " + escapeHtml(config.configId) + "</p>" +
+    "<p>Callback: " + escapeHtml(config.redirectUri) + "</p>" +
+    "<a href='" + escapeHtml(loginUrl) + "'>Meta 로그인 열기</a>" +
+    "<textarea readonly>" + escapeHtml(loginUrl) + "</textarea>" +
+    "<p>위의 <b>Meta 로그인 열기</b>를 직접 눌러 보세요.</p>" +
+    "<p>정상적으로 Facebook 화면이 열리면, 기존 버튼의 자동 이동 단계만 문제입니다.</p>" +
+    "</div></body></html>"
+  );
+});
+
 app.get("/facebook-debug", (req, res) => {
   const config = getFacebookConfig();
   const state = Buffer.from(JSON.stringify({ t: Date.now() }), "utf8").toString("base64url");
