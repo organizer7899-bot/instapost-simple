@@ -1,4 +1,4 @@
-// Version07 deployment marker: 2026-09-23
+// Version07 deployment marker: 2026-09-23-FIX2
 import express from "express";
 import multer from "multer";
 import dotenv from "dotenv";
@@ -252,7 +252,7 @@ app.get("/", (req, res) => {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>InstaPost Simple Version 05</title>
+<title>InstaPost Simple Version 07</title>
 <style>
 body{
   margin:0;
@@ -312,7 +312,7 @@ video{
 <body>
 <main>
 
-<h1>InstaPost Simple Version 05</h1>
+<h1>InstaPost Simple Version 07</h1>
 <p>영상 선택 → 게시글 입력 → Instagram + Facebook 동시 게시</p>
 
 <div class="card">
@@ -811,7 +811,7 @@ app.get("/facebook/callback", async (req, res) => {
       "<p>Page: " +
       String(selected.name || selected.id) +
       "</p>" +
-      "<p>이제 InstaPost Simple Version 03에서 Instagram + Facebook 동시 게시가 가능합니다.</p>"
+      "<p>이제 InstaPost Simple Version 07에서 Instagram + Facebook 동시 게시가 가능합니다.</p>"
     );
   } catch (error) {
     console.error("Facebook OAuth callback failed:", error);
