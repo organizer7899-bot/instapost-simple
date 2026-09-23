@@ -496,7 +496,7 @@ function finishFacebookUi(fb) {
 }
 
 async function pollFacebookJob(jobId) {
-  for (let i = 0; i < 90; i++) {
+  for (let i = 0; i < 45; i++) {
     await new Promise(resolve => setTimeout(resolve, 2000));
 
     const response = await fetch(
@@ -535,7 +535,7 @@ async function pollFacebookJob(jobId) {
 
     result.textContent =
       "② Instagram 게시 완료 — Facebook 릴 게시 중... (" +
-      (i + 1) + "/90)";
+      (i + 1) + "/45)";
   }
 
   fileInfo.textContent = "⚠️ Instagram 게시 완료 · Facebook 처리 중";
@@ -975,13 +975,14 @@ async function publishFacebookPageReel(videoPath, description) {
   startBody.append("upload_phase", "start");
   startBody.append("access_token", pageToken);
 
-  const startResponse = await fetch(
+  const startResponse = await fetchWithTimeout(
     "https://graph.facebook.com/" + version + "/" + pageId + "/video_reels",
     {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: startBody
-    }
+    },
+    30000
   );
   const started = await startResponse.json();
 
@@ -993,7 +994,7 @@ async function publishFacebookPageReel(videoPath, description) {
 
   // 2) Upload the video bytes to Facebook's resumable upload URL.
   const fileBuffer = fs.readFileSync(videoPath);
-  const uploadResponse = await fetch(started.upload_url, {
+  const uploadResponse = await fetchWithTimeout(started.upload_url, {
     method: "POST",
     headers: {
       Authorization: "OAuth " + pageToken,
@@ -1002,7 +1003,7 @@ async function publishFacebookPageReel(videoPath, description) {
       "Content-Type": "application/octet-stream"
     },
     body: fileBuffer
-  });
+  }, 120000);
   const uploadedText = await uploadResponse.text();
   let uploaded = {};
   try { uploaded = JSON.parse(uploadedText); } catch {}
@@ -1021,13 +1022,14 @@ async function publishFacebookPageReel(videoPath, description) {
   finishBody.append("description", description || "");
   finishBody.append("access_token", pageToken);
 
-  const finishResponse = await fetch(
+  const finishResponse = await fetchWithTimeout(
     "https://graph.facebook.com/" + version + "/" + pageId + "/video_reels",
     {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: finishBody
-    }
+    },
+    60000
   );
   const finished = await finishResponse.json();
 
@@ -1041,13 +1043,14 @@ async function publishFacebookPageReel(videoPath, description) {
     "https://www.facebook.com/" + pageId + "/videos/" + started.video_id;
 
   try {
-    const permalinkResponse = await fetch(
+    const permalinkResponse = await fetchWithTimeout(
       "https://graph.facebook.com/" +
         version +
         "/" +
         encodeURIComponent(started.video_id) +
         "?fields=permalink_url&access_token=" +
-        encodeURIComponent(pageToken)
+        encodeURIComponent(pageToken),
+      30000
     );
     const permalinkData = await permalinkResponse.json();
     if (permalinkResponse.ok && permalinkData?.permalink_url) {
