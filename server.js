@@ -1,4 +1,4 @@
-// Version07 deployment marker: 2026-09-23-FIX2
+// Version07 deployment marker: 2026-09-23-FIX3
 import express from "express";
 import multer from "multer";
 import dotenv from "dotenv";
@@ -316,7 +316,7 @@ video{
 <p>영상 선택 → 게시글 입력 → Instagram + Facebook 동시 게시</p>
 
 <div class="card">
-<button id="fbConnect" type="button" onclick="window.location.href='/facebook/login'">Facebook 연결</button>
+<a id="fbConnect" href="/facebook/login" style="display:block;width:100%;box-sizing:border-box;margin-top:12px;padding:16px;border:0;border-radius:14px;background:#fff;color:#111;font-size:17px;font-weight:bold;text-align:center;text-decoration:none;cursor:pointer">Facebook 연결</a>
 <div id="fbStatus">Facebook 연결 상태 확인 중...</div>
 </div>
 
@@ -376,12 +376,11 @@ async function checkFacebookStatus() {
   }
 }
 
-document.getElementById("fbConnect").onclick = () => {
+document.getElementById("fbConnect").addEventListener("click", () => {
   const btn = document.getElementById("fbConnect");
   btn.style.background = "#555";
   btn.style.color = "#fff";
-  window.location.href = "/facebook/login";
-};
+});
 
 checkFacebookStatus();
 
