@@ -340,7 +340,7 @@ video{
   placeholder="게시글 내용을 입력하세요."
 ></textarea>
 
-<button id="post" type="button">Instagram + Facebook에 게시</button>
+<button id="post" type="button" onclick="publishVideo()">Instagram + Facebook에 게시</button>
 
 <a id="personalShare" href="/facebook-personal-share" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-top:12px;padding:16px;border:0;border-radius:14px;background:#fff;color:#111;font-size:17px;font-weight:bold;box-sizing:border-box">Facebook에서 개인 피드에 공유하기</a>
 <div id="shareInfo" style="margin-top:10px;color:#bbb;line-height:1.6">Facebook 릴 화면이 열리면 <b>왼쪽 아래 공유 아이콘(↗)</b>을 누른 뒤 <b>피드에 공유</b>를 선택하세요.</div>
@@ -550,7 +550,6 @@ window.publishVideo = publishVideo;
 const publishButton = document.getElementById("post");
 publishButton.disabled = false;
 publishButton.style.pointerEvents = "auto";
-publishButton.addEventListener("click", publishVideo);
 </script>
 
 </body>
