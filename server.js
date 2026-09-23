@@ -247,6 +247,7 @@ app.get("/", (req, res) => {
   res.set("Expires", "0");
   res.send(`
 <!DOCTYPE html>
+<!-- Version07-FB-STATUS-2026-09-23 -->
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
