@@ -1039,6 +1039,40 @@ async function publishFacebookPageReel(videoPath, description) {
     );
   }
 
+  // Facebook finish returns before the Reel is necessarily processed/published.
+  // Poll the Reel status so the UI does not report success too early.
+  let publishedReady = false;
+  let lastStatus = null;
+  for (let i = 0; i < 60; i++) {
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    const statusResponse = await fetchWithTimeout(
+      "https://graph.facebook.com/" +
+        version +
+        "/" +
+        encodeURIComponent(started.video_id) +
+        "?fields=status&access_token=" +
+        encodeURIComponent(pageToken),
+      15000
+    );
+    const statusData = await statusResponse.json();
+    if (!statusResponse.ok) {
+      throw new Error(statusData?.error?.message || "Facebook Reel 상태 확인에 실패했습니다.");
+    }
+    lastStatus = statusData?.status || null;
+    const publishingStatus = String(lastStatus?.publishing_phase?.status || "").toLowerCase();
+    const videoStatus = String(lastStatus?.video_status || "").toLowerCase();
+    if (publishingStatus === "complete" || videoStatus === "published") {
+      publishedReady = true;
+      break;
+    }
+    if (publishingStatus === "error" || videoStatus === "error") {
+      throw new Error("Facebook Reel 처리 중 오류가 발생했습니다.");
+    }
+  }
+  if (!publishedReady) {
+    throw new Error("Facebook Reel 업로드는 완료됐지만 Facebook 처리가 아직 끝나지 않았습니다.");
+  }
+
   let shareUrl =
     "https://www.facebook.com/" + pageId + "/videos/" + started.video_id;
 
