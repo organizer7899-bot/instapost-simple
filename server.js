@@ -293,7 +293,21 @@ button{
   color:#111;
   font-size:17px;
   font-weight:bold;
-
+}
+#fbConnect{
+  transition:background .2s,color .2s,opacity .2s;
+}
+#fbConnect.fb-checking{
+  background:#555;
+  color:#fff;
+}
+#fbConnect.fb-connected{
+  background:#20a464;
+  color:#fff;
+}
+#fbConnect.fb-error{
+  background:#b83a3a;
+  color:#fff;
 }
 
 video{
@@ -361,24 +375,53 @@ let facebookShareUrl = "";
 
 
 async function checkFacebookStatus() {
+  const btn = document.getElementById("fbConnect");
+  btn.classList.remove("fb-checking", "fb-connected", "fb-error");
+  btn.classList.add("fb-checking");
+  btn.textContent = "Facebook 연결 상태 확인 중...";
+  fbStatus.textContent = "⏳ Facebook 연결 상태 확인 중...";
+
   try {
-    const response = await fetch("/facebook-status");
+    const response = await fetch("/facebook-status?t=" + Date.now(), {
+      cache: "no-store"
+    });
     const data = await response.json();
-    if (data.connected) {
-      fbStatus.textContent = "✅ Facebook 연결 완료";
-      document.getElementById("fbConnect").textContent = "Facebook 다시 연결";
-    } else {
-      fbStatus.textContent = "⚠️ Facebook이 아직 연결되지 않았습니다.";
+
+    if (data.status === "connected" || data.connected) {
+      btn.classList.remove("fb-checking", "fb-error");
+      btn.classList.add("fb-connected");
+      btn.textContent = "Facebook 연결 완료 · 다시 연결";
+      fbStatus.textContent =
+        "🟢 Facebook 연결됨" +
+        (data.page_name ? " · " + data.page_name : "");
+      return;
     }
+
+    if (data.status === "not_connected") {
+      btn.classList.remove("fb-checking", "fb-error", "fb-connected");
+      btn.textContent = "Facebook 연결";
+      fbStatus.textContent = "⚪ Facebook 미연결 — 위 버튼을 눌러 연결하세요.";
+      return;
+    }
+
+    btn.classList.remove("fb-checking", "fb-connected");
+    btn.classList.add("fb-error");
+    btn.textContent = "Facebook 연결 상태 확인";
+    fbStatus.textContent = "🔴 Facebook 연결 상태를 확인하지 못했습니다.";
   } catch (error) {
-    fbStatus.textContent = "Facebook 연결 상태 확인 실패";
+    btn.classList.remove("fb-checking", "fb-connected");
+    btn.classList.add("fb-error");
+    btn.textContent = "Facebook 연결 상태 확인";
+    fbStatus.textContent = "🔴 Facebook 연결 상태 확인 실패 — 다시 눌러 확인하세요.";
   }
 }
 
 document.getElementById("fbConnect").onclick = () => {
   const btn = document.getElementById("fbConnect");
-  btn.style.background = "#555";
-  btn.style.color = "#fff";
+  btn.classList.remove("fb-connected", "fb-error");
+  btn.classList.add("fb-checking");
+  btn.textContent = "Facebook 연결 중...";
+  fbStatus.textContent = "⏳ Facebook 연결 페이지로 이동 중...";
   window.location.href = "/facebook/login";
 };
 
@@ -801,12 +844,10 @@ app.get("/facebook/callback", async (req, res) => {
 
     saveFacebookPageToken(selected.access_token, selected.id);
 
-    res.send(
-      "<h2>✅ Facebook 연결 완료</h2>" +
-      "<p>Page: " +
-      String(selected.name || selected.id) +
-      "</p>" +
-      "<p>이제 InstaPost Simple Version 03에서 Instagram + Facebook 동시 게시가 가능합니다.</p>"
+    const connectedPageName = String(selected.name || selected.id || "");
+    return res.redirect(
+      "/?facebook=connected&page=" +
+      encodeURIComponent(connectedPageName)
     );
   } catch (error) {
     console.error("Facebook OAuth callback failed:", error);
@@ -865,14 +906,27 @@ app.get("/facebook-personal-share", (req, res) => {
 });
 
 app.get("/facebook-status", (req, res) => {
-  const connection = loadFacebookPageConnection();
-  const config = getFacebookConfig();
+  try {
+    const connection = loadFacebookPageConnection();
+    const config = getFacebookConfig();
+    const connected = !!connection.access_token;
 
-  res.json({
-    connected: !!connection.access_token,
-    page_id: config.pageId || connection.page_id || null,
-    note: "토큰 값은 표시하지 않습니다."
-  });
+    res.json({
+      ok: true,
+      status: connected ? "connected" : "not_connected",
+      connected,
+      page_id: config.pageId || connection.page_id || null,
+      note: "토큰 값은 표시하지 않습니다."
+    });
+  } catch (error) {
+    console.error("Facebook status check failed:", error);
+    res.status(500).json({
+      ok: false,
+      status: "error",
+      connected: false,
+      error: "Facebook 연결 상태 확인 실패"
+    });
+  }
 });
 
 app.get("/meta-debug", async (req, res) => {
