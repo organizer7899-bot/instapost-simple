@@ -1,4 +1,3 @@
-// Version07 deployment marker: 2026-09-23-FIX4
 import express from "express";
 import multer from "multer";
 import dotenv from "dotenv";
@@ -65,13 +64,13 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 20000) {
 
 function getFacebookConfig() {
   return {
-    appId: process.env.FB_APP_ID || process.env.META_APP_ID || "1097511469455323",
+    appId: process.env.FB_APP_ID || process.env.META_APP_ID || "",
     appSecret: process.env.FB_APP_SECRET || process.env.META_APP_SECRET || "",
     redirectUri:
       process.env.FB_REDIRECT_URI ||
       (process.env.PUBLIC_BASE_URL
         ? process.env.PUBLIC_BASE_URL.replace(/\/$/, "") + "/facebook/callback"
-        : "https://instapost-simple-production-9b72.up.railway.app/facebook/callback"),
+        : "https://instapost-simple-production.up.railway.app/facebook/callback"),
     pageId: process.env.FB_PAGE_ID || process.env.META_PAGE_ID || "",
     configId: "1070705949020606"
   };
@@ -252,7 +251,7 @@ app.get("/", (req, res) => {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>InstaPost Simple Version 07</title>
+<title>InstaPost Simple Version 05</title>
 <style>
 body{
   margin:0;
@@ -312,11 +311,11 @@ video{
 <body>
 <main>
 
-<h1>InstaPost Simple Version 07</h1>
+<h1>InstaPost Simple Version 05</h1>
 <p>영상 선택 → 게시글 입력 → Instagram + Facebook 동시 게시</p>
 
 <div class="card">
-<a id="fbConnect" href="/facebook/login" style="display:block;width:100%;box-sizing:border-box;margin-top:12px;padding:16px;border:0;border-radius:14px;background:#fff;color:#111;font-size:17px;font-weight:bold;text-align:center;text-decoration:none;cursor:pointer">Facebook 연결</a>
+<button id="fbConnect" type="button" onclick="window.location.href='/facebook/login'">Facebook 연결</button>
 <div id="fbStatus">Facebook 연결 상태 확인 중...</div>
 </div>
 
@@ -340,7 +339,7 @@ video{
   placeholder="게시글 내용을 입력하세요."
 ></textarea>
 
-<button id="post" type="button" onclick="publishVideo()">Instagram + Facebook에 게시</button>
+<button id="post" type="button" ontouchstart="this.dataset.touch=Date.now()" onclick="(async function(btn){const file=document.getElementById('video').files[0],result=document.getElementById('result'),info=document.getElementById('fileInfo'),caption=document.getElementById('caption').value||'';if(!file){result.textContent='❌ 영상을 먼저 선택하세요.';return;}btn.disabled=true;btn.textContent='⏳ 게시 처리 중...';result.textContent='① 게시 버튼 작동 — 영상 업로드 중...';info.textContent='📤 '+file.name+' — 서버로 전송 중...';try{const fd=new FormData();fd.append('video',file);fd.append('caption',caption);const response=await fetch('/publish',{method:'POST',body:fd});const data=await response.json();if(!response.ok)throw new Error(data.error||'게시 실패');result.textContent='② Instagram 게시 완료 — Facebook 릴 게시 중...';info.textContent='✅ Instagram 게시 완료 · Facebook 릴 게시 중...';if(data.facebook&&data.facebook.pending&&data.facebook.jobId){for(let i=0;i<90;i++){await new Promise(r=>setTimeout(r,2000));const jr=await fetch('/facebook-job/'+encodeURIComponent(data.facebook.jobId)+'?t='+Date.now(),{cache:'no-store'});const jd=await jr.json();if(jd.status==='done'){info.textContent='✅ Instagram + Facebook 게시 완료';result.textContent='③ Instagram + Facebook 동시 게시 완료';if(jd.result&&jd.result.videoId){document.getElementById('personalShare').href='/facebook-personal-share?video_id='+encodeURIComponent(jd.result.videoId);}break;}if(jd.status==='error'){info.textContent='⚠️ Instagram 게시 완료 · Facebook 실패';result.textContent='⚠️ Facebook: '+(jd.error||'게시 실패');break;}result.textContent='② Instagram 게시 완료 — Facebook 릴 게시 중... ('+(i+1)+'/90)';}}else{info.textContent='⚠️ Instagram 게시 완료';result.textContent='③ Instagram 게시 완료';}}catch(e){info.textContent='❌ 게시 실패';result.textContent='❌ '+e.message;}finally{btn.disabled=false;btn.textContent='Instagram + Facebook에 게시';}})(this)">Instagram + Facebook에 게시</button>
 
 <a id="personalShare" href="/facebook-personal-share" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-top:12px;padding:16px;border:0;border-radius:14px;background:#fff;color:#111;font-size:17px;font-weight:bold;box-sizing:border-box">Facebook에서 개인 피드에 공유하기</a>
 <div id="shareInfo" style="margin-top:10px;color:#bbb;line-height:1.6">Facebook 릴 화면이 열리면 <b>왼쪽 아래 공유 아이콘(↗)</b>을 누른 뒤 <b>피드에 공유</b>를 선택하세요.</div>
@@ -376,11 +375,12 @@ async function checkFacebookStatus() {
   }
 }
 
-document.getElementById("fbConnect").addEventListener("click", () => {
+document.getElementById("fbConnect").onclick = () => {
   const btn = document.getElementById("fbConnect");
   btn.style.background = "#555";
   btn.style.color = "#fff";
-});
+  window.location.href = "/facebook/login";
+};
 
 checkFacebookStatus();
 
@@ -404,8 +404,6 @@ video.onchange = () => {
 };
 
 async function publishVideo() {
-  if (postButton.disabled) return;
-
   const file = video.files[0];
 
   if (!file) {
@@ -550,6 +548,14 @@ window.publishVideo = publishVideo;
 const publishButton = document.getElementById("post");
 publishButton.disabled = false;
 publishButton.style.pointerEvents = "auto";
+publishButton.addEventListener("touchend", function(e) {
+  e.preventDefault();
+  publishVideo();
+}, { passive: false });
+publishButton.addEventListener("click", function(e) {
+  if (e.detail === 0) return;
+  publishVideo();
+});
 </script>
 
 </body>
@@ -562,7 +568,7 @@ app.get("/facebook/login", (req, res) => {
 
   if (!config.appId || !config.configId) {
     return res.status(500).send(
-      "Facebook Login 설정이 없습니다. FB_APP_ID 또는 Facebook Config ID를 확인하세요."
+      "Facebook Login for Business 설정이 필요합니다. Railway Variables에 FB_APP_ID와 FB_CONFIG_ID를 설정하세요."
     );
   }
 
@@ -582,12 +588,8 @@ app.get("/facebook/login", (req, res) => {
     override_default_response_type: "true"
   });
 
-  // Keep the OAuth callback tied to this Version07 deployment.
-  // This prevents an old Version05/06 callback URL from being reused.
-  console.log("Facebook OAuth redirect:", config.redirectUri);
-
   const loginUrl =
-    "https://www.facebook.com/v26.0/dialog/oauth?" +
+    "https://www.facebook.com/dialog/oauth?" +
     params.toString();
 
   res.redirect(loginUrl);
@@ -598,7 +600,7 @@ app.get("/facebook-config", (req, res) => {
   if (!config.appId || !config.configId) {
     return res.status(500).json({
       ok: false,
-      error: "FB_APP_ID 또는 Facebook Config ID가 없습니다."
+      error: "FB_APP_ID 또는 FB_CONFIG_ID가 없습니다."
     });
   }
 
@@ -804,7 +806,7 @@ app.get("/facebook/callback", async (req, res) => {
       "<p>Page: " +
       String(selected.name || selected.id) +
       "</p>" +
-      "<p>이제 InstaPost Simple Version 07에서 Instagram + Facebook 동시 게시가 가능합니다.</p>"
+      "<p>이제 InstaPost Simple Version 03에서 Instagram + Facebook 동시 게시가 가능합니다.</p>"
     );
   } catch (error) {
     console.error("Facebook OAuth callback failed:", error);
