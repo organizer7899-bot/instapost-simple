@@ -588,6 +588,10 @@ app.get("/facebook/login", (req, res) => {
     override_default_response_type: "true"
   });
 
+  // Keep the OAuth callback tied to this Version07 deployment.
+  // This prevents an old Version05/06 callback URL from being reused.
+  console.log("Facebook OAuth redirect:", config.redirectUri);
+
   const loginUrl =
     "https://www.facebook.com/v26.0/dialog/oauth?"
     params.toString();
