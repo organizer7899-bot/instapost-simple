@@ -1,4 +1,4 @@
-// Version07 deployment marker: 2026-09-23-FIX3
+// Version07 deployment marker: 2026-09-23-FIX4
 import express from "express";
 import multer from "multer";
 import dotenv from "dotenv";
@@ -340,7 +340,7 @@ video{
   placeholder="게시글 내용을 입력하세요."
 ></textarea>
 
-<button id="post" type="button" ontouchstart="this.dataset.touch=Date.now()" onclick="(async function(btn){const file=document.getElementById('video').files[0],result=document.getElementById('result'),info=document.getElementById('fileInfo'),caption=document.getElementById('caption').value||'';if(!file){result.textContent='❌ 영상을 먼저 선택하세요.';return;}btn.disabled=true;btn.textContent='⏳ 게시 처리 중...';result.textContent='① 게시 버튼 작동 — 영상 업로드 중...';info.textContent='📤 '+file.name+' — 서버로 전송 중...';try{const fd=new FormData();fd.append('video',file);fd.append('caption',caption);const response=await fetch('/publish',{method:'POST',body:fd});const data=await response.json();if(!response.ok)throw new Error(data.error||'게시 실패');result.textContent='② Instagram 게시 완료 — Facebook 릴 게시 중...';info.textContent='✅ Instagram 게시 완료 · Facebook 릴 게시 중...';if(data.facebook&&data.facebook.pending&&data.facebook.jobId){for(let i=0;i<90;i++){await new Promise(r=>setTimeout(r,2000));const jr=await fetch('/facebook-job/'+encodeURIComponent(data.facebook.jobId)+'?t='+Date.now(),{cache:'no-store'});const jd=await jr.json();if(jd.status==='done'){info.textContent='✅ Instagram + Facebook 게시 완료';result.textContent='③ Instagram + Facebook 동시 게시 완료';if(jd.result&&jd.result.videoId){document.getElementById('personalShare').href='/facebook-personal-share?video_id='+encodeURIComponent(jd.result.videoId);}break;}if(jd.status==='error'){info.textContent='⚠️ Instagram 게시 완료 · Facebook 실패';result.textContent='⚠️ Facebook: '+(jd.error||'게시 실패');break;}result.textContent='② Instagram 게시 완료 — Facebook 릴 게시 중... ('+(i+1)+'/90)';}}else{info.textContent='⚠️ Instagram 게시 완료';result.textContent='③ Instagram 게시 완료';}}catch(e){info.textContent='❌ 게시 실패';result.textContent='❌ '+e.message;}finally{btn.disabled=false;btn.textContent='Instagram + Facebook에 게시';}})(this)">Instagram + Facebook에 게시</button>
+<button id="post" type="button">Instagram + Facebook에 게시</button>
 
 <a id="personalShare" href="/facebook-personal-share" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-top:12px;padding:16px;border:0;border-radius:14px;background:#fff;color:#111;font-size:17px;font-weight:bold;box-sizing:border-box">Facebook에서 개인 피드에 공유하기</a>
 <div id="shareInfo" style="margin-top:10px;color:#bbb;line-height:1.6">Facebook 릴 화면이 열리면 <b>왼쪽 아래 공유 아이콘(↗)</b>을 누른 뒤 <b>피드에 공유</b>를 선택하세요.</div>
@@ -404,6 +404,8 @@ video.onchange = () => {
 };
 
 async function publishVideo() {
+  if (postButton.disabled) return;
+
   const file = video.files[0];
 
   if (!file) {
@@ -548,14 +550,7 @@ window.publishVideo = publishVideo;
 const publishButton = document.getElementById("post");
 publishButton.disabled = false;
 publishButton.style.pointerEvents = "auto";
-publishButton.addEventListener("touchend", function(e) {
-  e.preventDefault();
-  publishVideo();
-}, { passive: false });
-publishButton.addEventListener("click", function(e) {
-  if (e.detail === 0) return;
-  publishVideo();
-});
+publishButton.addEventListener("click", publishVideo);
 </script>
 
 </body>
