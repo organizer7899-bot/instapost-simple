@@ -375,45 +375,60 @@ const postButton = document.getElementById("post");
 let facebookShareUrl = "";
 
 
-async function checkFacebookStatus() {
+function setFacebookConnected(pageName) {
+  const btn = document.getElementById("fbConnect");
+  btn.classList.remove("fb-checking", "fb-error");
+  btn.classList.add("fb-connected");
+  btn.textContent = "Facebook 연결 완료 · 다시 연결";
+  fbStatus.textContent = "🟢 Facebook 연결됨" + (pageName ? " · " + pageName : "");
+}
+
+function setFacebookNotConnected() {
   const btn = document.getElementById("fbConnect");
   btn.classList.remove("fb-checking", "fb-connected", "fb-error");
+  btn.textContent = "Facebook 연결";
+  fbStatus.textContent = "⚪ Facebook 미연결 — 위 버튼을 눌러 연결하세요.";
+}
+
+async function checkFacebookStatus() {
+  const btn = document.getElementById("fbConnect");
+  btn.classList.remove("fb-connected", "fb-error");
   btn.classList.add("fb-checking");
-  btn.textContent = "Facebook 연결 상태 확인 중...";
+  btn.textContent = "Facebook 상태 확인 중...";
   fbStatus.textContent = "⏳ Facebook 연결 상태 확인 중...";
 
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("facebook") === "connected") {
+    setFacebookConnected(params.get("page") || "");
+    return;
+  }
+
   try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
     const response = await fetch("/facebook-status?t=" + Date.now(), {
-      cache: "no-store"
+      cache: "no-store",
+      signal: controller.signal
     });
+    clearTimeout(timer);
     const data = await response.json();
 
     if (data.status === "connected" || data.connected) {
-      btn.classList.remove("fb-checking", "fb-error");
-      btn.classList.add("fb-connected");
-      btn.textContent = "Facebook 연결 완료 · 다시 연결";
-      fbStatus.textContent =
-        "🟢 Facebook 연결됨" +
-        (data.page_name ? " · " + data.page_name : "");
+      setFacebookConnected(data.page_name || "");
       return;
     }
-
     if (data.status === "not_connected") {
-      btn.classList.remove("fb-checking", "fb-error", "fb-connected");
-      btn.textContent = "Facebook 연결";
-      fbStatus.textContent = "⚪ Facebook 미연결 — 위 버튼을 눌러 연결하세요.";
+      setFacebookNotConnected();
       return;
     }
-
-    btn.classList.remove("fb-checking", "fb-connected");
-    btn.classList.add("fb-error");
-    btn.textContent = "Facebook 연결 상태 확인";
-    fbStatus.textContent = "🔴 Facebook 연결 상태를 확인하지 못했습니다.";
+    throw new Error("status error");
   } catch (error) {
     btn.classList.remove("fb-checking", "fb-connected");
     btn.classList.add("fb-error");
     btn.textContent = "Facebook 연결 상태 확인";
-    fbStatus.textContent = "🔴 Facebook 연결 상태 확인 실패 — 다시 눌러 확인하세요.";
+    fbStatus.textContent = error && error.name === "AbortError"
+      ? "🔴 Facebook 상태 확인 시간 초과"
+      : "🔴 Facebook 연결 상태 확인 실패";
   }
 }
 
