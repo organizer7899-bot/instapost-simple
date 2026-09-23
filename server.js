@@ -588,7 +588,7 @@ app.get("/facebook/login", (req, res) => {
   console.log("Facebook OAuth redirect:", config.redirectUri);
 
   const loginUrl =
-    "https://www.facebook.com/v26.0/dialog/oauth?"
+    "https://www.facebook.com/v26.0/dialog/oauth?" +
     params.toString();
 
   res.redirect(loginUrl);
