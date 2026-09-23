@@ -376,6 +376,9 @@ async function checkFacebookStatus() {
 }
 
 document.getElementById("fbConnect").onclick = () => {
+  const btn = document.getElementById("fbConnect");
+  btn.style.background = "#555";
+  btn.style.color = "#fff";
   window.location.href = "/facebook/login";
 };
 
