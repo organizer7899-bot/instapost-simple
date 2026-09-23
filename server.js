@@ -568,7 +568,7 @@ app.get("/facebook/login", (req, res) => {
 
   if (!config.appId || !config.configId) {
     return res.status(500).send(
-      "Facebook Login for Business 설정이 필요합니다. Railway Variables에 FB_APP_ID와 FB_CONFIG_ID를 설정하세요."
+      "Facebook Login 설정이 없습니다. FB_APP_ID 또는 Facebook Config ID를 확인하세요."
     );
   }
 
@@ -589,7 +589,7 @@ app.get("/facebook/login", (req, res) => {
   });
 
   const loginUrl =
-    "https://www.facebook.com/dialog/oauth?" +
+    "https://www.facebook.com/v26.0/dialog/oauth?"
     params.toString();
 
   res.redirect(loginUrl);
@@ -600,7 +600,7 @@ app.get("/facebook-config", (req, res) => {
   if (!config.appId || !config.configId) {
     return res.status(500).json({
       ok: false,
-      error: "FB_APP_ID 또는 FB_CONFIG_ID가 없습니다."
+      error: "FB_APP_ID 또는 Facebook Config ID가 없습니다."
     });
   }
 
