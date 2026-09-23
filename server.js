@@ -64,13 +64,13 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 20000) {
 
 function getFacebookConfig() {
   return {
-    appId: process.env.FB_APP_ID || process.env.META_APP_ID || "",
+    appId: process.env.FB_APP_ID || process.env.META_APP_ID || "1097511469455323",
     appSecret: process.env.FB_APP_SECRET || process.env.META_APP_SECRET || "",
     redirectUri:
       process.env.FB_REDIRECT_URI ||
       (process.env.PUBLIC_BASE_URL
         ? process.env.PUBLIC_BASE_URL.replace(/\/$/, "") + "/facebook/callback"
-        : "https://instapost-simple-production.up.railway.app/facebook/callback"),
+        : "https://instapost-simple-production-9b72.up.railway.app/facebook/callback"),
     pageId: process.env.FB_PAGE_ID || process.env.META_PAGE_ID || "",
     configId: "1070705949020606"
   };
@@ -568,7 +568,7 @@ app.get("/facebook/login", (req, res) => {
 
   if (!config.appId || !config.configId) {
     return res.status(500).send(
-      "Facebook Login for Business 설정이 필요합니다. Railway Variables에 FB_APP_ID와 FB_CONFIG_ID를 설정하세요."
+      "Facebook Login 설정을 확인할 수 없습니다."
     );
   }
 
