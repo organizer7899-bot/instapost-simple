@@ -1187,10 +1187,10 @@ app.post(
       const creationId = created.id;
 
       let finished = false;
+      let lastProcessingStatus = "UNKNOWN";
 
-      // Poll Instagram processing status more frequently so publishing
-      // does not appear unnecessarily stalled.
-      for (let i=0;i<30;i++) {
+      // Instagram transcodes Reels asynchronously. Allow up to three minutes.
+      for (let i=0;i<90;i++) {
 
         await new Promise(
           resolve =>
@@ -1211,6 +1211,15 @@ app.post(
         const status =
           await statusResponse.json();
 
+        if (!statusResponse.ok) {
+          fs.rmSync(req.file.path, { force: true });
+          return res.status(502).json({
+            error: status?.error?.message || "Instagram 영상 처리 상태 조회에 실패했습니다."
+          });
+        }
+        lastProcessingStatus = status.status_code || "UNKNOWN";
+        if (i % 10 === 0) console.log("Instagram media processing:", lastProcessingStatus, "poll", i + 1);
+
         if (
           status.status_code ===
           "FINISHED"
@@ -1227,6 +1236,7 @@ app.post(
           return res.status(502).json({
             error:
               status?.error?.message ||
+              status?.status ||
               "Instagram 영상 처리에 실패했습니다."
           });
         }
@@ -1238,7 +1248,7 @@ app.post(
         fs.rmSync(req.file.path, { force: true });
         return res.status(504).json({
           error:
-            "Instagram 영상 처리가 아직 끝나지 않았습니다."
+            "Instagram 영상 처리 시간이 3분을 넘었습니다. 마지막 상태: " + lastProcessingStatus + ". 실제 계정 게시 여부를 확인한 뒤 다시 시도하세요."
         });
 
       }
